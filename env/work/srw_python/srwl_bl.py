@@ -25,6 +25,8 @@ try: #OC05042018
 except:
     import pickle
 
+import numpy as np
+
 #****************************************************************************
 # Global Constants
 
@@ -767,7 +769,8 @@ class SRWLBeamline(object):
         if(_op is None): #OC16122018
             if(_v is not None):
                 if(hasattr(_v, 'op_func')): #OC28032020
-                    if(_v.op_func is None):
+                    # if _v.op_func is None:
+                    if _v.op_func is not None: #AH20210607 bugfix
                         _op = _v.op_func(_v) #assuming _v.op_func is reference to set_optics function of virtual beamline script
                 #if(_v.op_func is None):
                 #    raise Exception('Optics container structure (SRWLOptC) or function for setting it up is not defined')
@@ -1745,6 +1748,7 @@ class SRWLBeamline(object):
 
         if((hasattr(self, 'optics') == False) or (isinstance(self.optics, SRWLOptC) == False)):
             raise Exception('Incorrect optics container (SRWLOptC) structure')
+
         if(isinstance(_wfr, SRWLWfr) == False):
             raise Exception('Incorrect wavefront (SRWLWfr) structure')
 
@@ -1945,11 +1949,12 @@ class SRWLBeamline(object):
         return res #maybe normalize it by something / apply weight?
 
     #------------------------------------------------------------------------
+    
     def cost_func(self, _x, *_aux):
         """Standard Cost Function used for optimization of optical elements and possibly sources"""
 
         x_lim = _aux[0]
-        #print(x_lim)
+        #print('x_lim', x_lim)
         
         v = _aux[1] #all params for optical simulation
         cw = v.om_cw #optimization weights for different criterions
@@ -1966,6 +1971,8 @@ class SRWLBeamline(object):
         
         nmVars = v.om_pn
         nVars = len(_x)
+        #print('_x',_x)
+        
         if((nVars != len(nmVars)) or (nVars != len(x_lim))):
             raise Exception("Inconsistent numbers of optimization parameters / names / limits")
 
@@ -1975,11 +1982,16 @@ class SRWLBeamline(object):
             #curNameVar = nmVars[i]
             #curVar = getattr(v, curNameVar)
             #print(curNameVar, '= ', curVar)
+            #print('nmVars[i]', nmVars[i])
+            #print('before set value, v.nmVars[i]=', nmVars[i], getattr(v, nmVars[i]))
             setattr(v, nmVars[i], _x[i]) #setting instant values of optimization variables
+            #print('after set value, v.nmVars[i]=', getattr(v, nmVars[i]))
+
+        self.set_optics(None, v) # AH20210607
 
         self.calc_all(v) #run forward-simulation
         cost = 0
-        
+        val = {}  #AH20210601
         #Calculate cost based of weights, target and nominal values of radiation characteristics
         if(v.si or v.ws or v.wg): #fully-coherent / single-electron calculations
 
@@ -1988,10 +2000,12 @@ class SRWLBeamline(object):
 
             s2pr = '  '
             frm = '{:04.6g}'
+            
             def critInf(_parDescr, _parName, _subCost):
                 return (' '+_parDescr+'='+frm).format(_parName) + (' (sub-cost:'+frm+')').format(_subCost)
                 
-            wfr = v.w_res            
+            wfr = v.w_res
+                        
             infIsReq = v.om_pr or v.om_fl
 
             if((cw['xFWHM'] > 0) or (cw['yFWHM'] > 0) or (cw['iM'] > 0) or (cw['xFWFM'] > 0) or (cw['yFWFM'] > 0)): #horizontal, vertical sizes, and peak intensity
@@ -1999,7 +2013,7 @@ class SRWLBeamline(object):
                 meshI = wfr.mesh
                 arI = array('f', [0]*meshI.nx*meshI.ny) #"flat" 2D array to take intensity data
                 srwl.CalcIntFromElecField(arI, wfr, 6, 0, 3, meshI.eStart, 0, 0) #total intensity vs x and y; consider adding different polarizations
-
+                
                 arParInf = [0]
                 if((cw['xFWFM'] > 0) or (cw['yFWFM'] > 0)):
                     arParInf = [0, 0, 0]
@@ -2016,7 +2030,8 @@ class SRWLBeamline(object):
                     #if(infIsReq): s2pr += (' xFWHM='+frm).format(xFWHM) + (' (sub-cost:'+frm+')').format(dCost)
                     if(infIsReq): s2pr += critInf('xFWHM', xFWHM, dCost)
                     cost += dCost
-
+                    val['xFWHM'] = xFWHM # AH06012021
+                    
                 if((cw['yFWHM'] > 0) and (cn['yFWHM'] > 0)): #vertical size
                     yFWHM = infI[5]
                     ry = (yFWHM - ct['yFWHM'])/cn['yFWHM']
@@ -2024,6 +2039,7 @@ class SRWLBeamline(object):
                     #if(infIsReq): s2pr += (' yFWHM='+frm).format(yFWHM) + (' (sub-cost:'+frm+')').format(dCost)
                     if(infIsReq): s2pr += critInf('yFWHM', yFWHM, dCost)
                     cost += dCost
+                    val['yFWHM'] = yFWHM # AH06012021
 
                 if((cw['xFWFM'] > 0) and (cn['xFWFM'] > 0)): #additional horizontal size
                     xFWFM = infI[7]
@@ -2032,6 +2048,7 @@ class SRWLBeamline(object):
                     #if(infIsReq): s2pr += (' xFWFM='+frm).format(xFWFM) + (' (sub-cost:'+frm+')').format(dCost)
                     if(infIsReq): s2pr += critInf('xFWHM', xFWHM, dCost)
                     cost += dCost
+                    val['xFWFM'] = xFWFM # AH06012021
 
                 if((cw['yFWFM'] > 0) and (cn['yFWFM'] > 0)): #additional vertical size
                     yFWFM = infI[8]
@@ -2040,6 +2057,7 @@ class SRWLBeamline(object):
                     #if(infIsReq): s2pr += (' yFWFM='+frm).format(yFWFM) + (' (sub-cost:'+frm+')').format(dCost)
                     if(infIsReq): s2pr += critInf('yFWFM', yFWFM, dCost)
                     cost += dCost
+                    val['yFWFM'] = yFWFM # AH06012021
 
                 if((cw['iM'] > 0) and (cn['iM'] > 0)): #peak intensity
                     maxI = infI[0]
@@ -2048,6 +2066,7 @@ class SRWLBeamline(object):
                     #if(infIsReq): s2pr += (' iM='+frm).format(maxI) + (' (sub-cost:'+frm+')').format(dCost)
                     if(infIsReq): s2pr += critInf('iM', maxI, dCost)
                     cost += dCost
+                    val['maxI'] = maxI # AH06012021
 
             if((cw['xpFWHM'] > 0) or (cw['ypFWHM'] > 0)): #horizontal and vertical angular divergences
                 srwl.SetRepresElecField(wfr, 'a')
@@ -2070,6 +2089,7 @@ class SRWLBeamline(object):
                     #if(infIsReq): s2pr += (' xpFWHM='+frm).format(xpFWHM) + (' (sub-cost:'+frm+')').format(dCost)
                     if(infIsReq): s2pr += critInf('xpFWHM', xpFWHM, dCost)
                     cost += dCost
+                    val['xpFWHM'] = xpFWHM # AH06012021
 
                 if((cw['ypFWHM'] > 0) and (cn['ypFWHM'] > 0)): #vertical angular divergence
                     ypFWHM = infI[5]
@@ -2078,6 +2098,7 @@ class SRWLBeamline(object):
                     #if(infIsReq): s2pr += (' ypFWHM='+frm).format(ypFWHM) + (' (sub-cost:'+frm+')').format(dCost)
                     if(infIsReq): s2pr += critInf('ypFWHM', ypFWHM, dCost)
                     cost += dCost
+                    val['ypFWHM'] = ypFWHM # AH06012021
 
                 if((cw['xpFWFM'] > 0) and (cn['xpFWFM'] > 0)): #additional horizontal angular divergence
                     xpFWFM = infI[7]
@@ -2086,6 +2107,7 @@ class SRWLBeamline(object):
                     #if(infIsReq): s2pr += (' xpFWFM='+frm).format(xpFWFM) + (' (sub-cost:'+frm+')').format(dCost)
                     if(infIsReq): s2pr += critInf('xpFWFM', xpFWFM, dCost)
                     cost += dCost
+                    val['xpFWFM'] = xpFWFM # AH06012021
 
                 if((cw['ypFWFM'] > 0) and (cn['ypFWFM'] > 0)): #additional vertical angular divergence
                     ypFWFM = infI[8]
@@ -2094,6 +2116,7 @@ class SRWLBeamline(object):
                     #if(infIsReq): s2pr += (' ypFWFM='+frm).format(ypFWFM) + (' (sub-cost:'+frm+')').format(dCost)
                     if(infIsReq): s2pr += critInf('ypFWFM', ypFWFM, dCost)
                     cost += dCost
+                    val['ypFWFM'] = ypFWFM # AH06012021
 
             if(cw['iD'] > 0): #arbitrary intensity distribution to fit; this optimization should run separately with others (const values don't accumulate)
                 if(hasattr(self, 'arIntFit') and hasattr(self, 'meshIntFit')):
@@ -2164,7 +2187,8 @@ class SRWLBeamline(object):
                             #OCTEST
                             #print('cost_func: ivScaleMult=', ivScaleMult)
 
-                            optRes = self.uti_math_opt.minimize(self.cost_func_aux_int_distr, 
+                            #optRes = self.uti_math_opt.minimize(self.cost_func_aux_int_distr, #AH05282021
+                            optRes = self.uti_math_opt.optimize(self.cost_func_aux_int_distr,  # AH05282021
                                                                 _x=[ivScaleMult], _x_lim=[[0.01*ivScaleMult,100*ivScaleMult]], #to tune?
                                                                 _meth=v.om_fs[0], _opt=v.om_mp, _aux=v)
                             dCost = optRes.fun
@@ -2199,6 +2223,7 @@ class SRWLBeamline(object):
                             dCost = cw['xFWHM']*rx*rx
                             if(infIsReq): s2pr += critInf('xFWHM', xFWHM, dCost)
                             cost += dCost
+                            val['xFWHM'] = xFWHM # AH06012021
 
                         if((cw['yFWHM'] > 0) and (cn['yFWHM'] > 0)): #vertical size
                             yFWHM = infI[5]
@@ -2206,6 +2231,7 @@ class SRWLBeamline(object):
                             dCost = cw['yFWHM']*ry*ry
                             if(infIsReq): s2pr += critInf('yFWHM', yFWHM, dCost)
                             cost += dCost
+                            val['yFWHM'] = yFWHM # AH06012021
 
                         if((cw['xFWFM'] > 0) and (cn['xFWFM'] > 0)): #additional horizontal size
                             xFWFM = infI[7]
@@ -2213,6 +2239,7 @@ class SRWLBeamline(object):
                             dCost = cw['xFWFM']*rx*rx
                             if(infIsReq): s2pr += critInf('xFWFM', xFWFM, dCost)
                             cost += dCost
+                            val['xFWFM'] = xFWFM # AH06012021
 
                         if((cw['yFWFM'] > 0) and (cn['yFWFM'] > 0)): #additional vertical size
                             yFWFM = infI[8]
@@ -2220,6 +2247,7 @@ class SRWLBeamline(object):
                             dCost = cw['yFWFM']*ry*ry
                             if(infIsReq): s2pr += critInf('yFWFM', yFWFM, dCost)
                             cost += dCost
+                            val['yFWFM'] = yFWFM # AH06012021
 
                         if((cw['iM'] > 0) and (cn['iM'] > 0)): #peak intensity
                             maxI = infI[0]
@@ -2227,6 +2255,7 @@ class SRWLBeamline(object):
                             dCost = cw['iM']*rI*rI
                             if(infIsReq): s2pr += critInf('iM', maxI, dCost)
                             cost += dCost
+                            val['maxI'] = maxI # AH06012021
             
                 if(((cw['xpFWHM'] > 0) or (cw['ypFWHM'] > 0)) and ((v.wm_ap == 1) or (v.wm_ap == 2))): #horizontal and vertical angular divergences
                     #if((v.wm_ch == 0) or (v.wm_ch == 40)):
@@ -2248,6 +2277,7 @@ class SRWLBeamline(object):
                         dCost = cw['xpFWHM']*rx*rx
                         if(infIsReq): s2pr += critInf('xpFWHM', xpFWHM, dCost)
                         cost += dCost
+                        val['xpFWHM'] = xpFWHM # AH06012021
 
                     if((cw['ypFWHM'] > 0) and (cn['ypFWHM'] > 0)): #vertical divergence
                         ypFWHM = infI[5]
@@ -2255,6 +2285,7 @@ class SRWLBeamline(object):
                         dCost = cw['ypFWHM']*ry*ry
                         if(infIsReq): s2pr += critInf('ypFWHM', ypFWHM, dCost)
                         cost += dCost
+                        val['ypFWHM'] = ypFWHM # AH06012021
 
                     if((cw['xpFWFM'] > 0) and (cn['xpFWFM'] > 0)): #additional horizontal angular divergence
                         xpFWFM = infI[7]
@@ -2262,6 +2293,7 @@ class SRWLBeamline(object):
                         dCost = cw['xpFWFM']*rxp*rxp
                         if(infIsReq): s2pr += critInf('xpFWFM', xpFWFM, dCost)
                         cost += dCost
+                        val['xpFWFM'] = xpFWFM # AH06012021
 
                     if((cw['ypFWFM'] > 0) and (cn['ypFWFM'] > 0)): #additional vertical angular divergence
                         ypFWFM = infI[8]
@@ -2269,6 +2301,7 @@ class SRWLBeamline(object):
                         dCost = cw['ypFWFM']*ryp*ryp
                         if(infIsReq): s2pr += critInf('ypFWFM', ypFWFM, dCost)
                         cost += dCost
+                        val['ypFWFM'] = ypFWFM # AH06012021
 
                 if(((cw['xCL'] > 0) or (cw['yCL'] > 0)) and ((v.wm_ch == 4) or (v.wm_ch == 40))): #horizontal and vertical coherence lengths
 
@@ -2281,6 +2314,7 @@ class SRWLBeamline(object):
                         dCost = cw['xCL']*rx*rx
                         if(infIsReq): s2pr += critInf('xCL', xCoh, dCost)
                         cost += dCost
+                        val['xCoh'] = xCoh # AH06012021
                         
                     if((cw['yCL'] > 0) and (cn['yCL'] > 0)): #vertical coherence length
                         fnDC = srwl_wfr_fn(v.wm_fni, 42)
@@ -2291,16 +2325,18 @@ class SRWLBeamline(object):
                         dCost = cw['yCL']*ry*ry
                         if(infIsReq): s2pr += critInf('yCL', yCoh, dCost)
                         cost += dCost
+                        val['yCoh'] = yCoh # AH06012021
 
             #if(cw['iD'] > 0): #arbitrary intensity distribution, to implement!
-
+        
         if(v.om_pr or v.om_pr):
             statStr = self.uti_math_opt.status_str(v.om_pn, _x, cost, frm, v.om_res)
             if(v.om_pr): print(statStr)
             if(v.om_fl): self.uti_math_opt.log_update(v.om_fnl, statStr)
             
         v.om_res = self.uti_math_opt.status_update(v.om_res, _x, cost)
-        return cost
+        #return cost
+        return cost, val  #AH20210601
 
     #------------------------------------------------------------------------
     def cancel_calc_req(self, _v):
@@ -2349,7 +2385,7 @@ class SRWLBeamline(object):
                 self.comMPI = None
 
             _v.om = False #to avoid infinite nested loop
-
+            # self.set_optics(None, _v) #AH20210607
             #_v.om_cw = uti_math_opt.norm_weights(_v.om_cw)
             #Updating weight values in the hashtable (is there a simpler war to do the above manipulation?):
             om_cw_vals = uti_math_opt.norm_weights([_v.om_cw[k] for k in _v.om_cw.keys()])
@@ -2372,9 +2408,10 @@ class SRWLBeamline(object):
                     #print(self.meshIntFit)
                     self.arIntFit, self.meshIntFit = srwl_uti_read_intens_ascii(fPathOptIntDistr)
             
-            uti_math_opt.minimize(self.cost_func, _v.om_iv, _x_lim=_v.om_lm, _meth=_v.om_mt, _opt=_v.om_mp, _aux=_v)
+            #uti_math_opt.minimize(self.cost_func, _v.om_iv, _x_lim=_v.om_lm, _meth=_v.om_mt, _opt=_v.om_mp, _aux=_v)   #AH05282021
+            uti_math_opt.optimize(self.cost_func, _v.om_iv, _x_lim=_v.om_lm, _meth=_v.om_mt, _opt=_v.om_mp, _aux=_v)  #AH05282021
             _v = self.cancel_calc_req(_v)
-
+        
         #---main folder
         if hasattr(_v, 'fdir'): self.dir_main = _v.fdir
 
