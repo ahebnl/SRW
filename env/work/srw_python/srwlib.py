@@ -3541,6 +3541,24 @@ class SRWLOptG(SRWLOpt):
         defAng = pi - alpha + beta
         return en, defAng
 
+    def grating_focusing_condition(self, _en, _ang_graz, _r1, _cff=None): #AH05102021
+        """Calculates the focusing condition for a plane vary line space grating
+        :param _ang_graz: grazing incidence angle [rad] the grating should be aligned for; it will be taken into account if _e_avg != 0 and _cff is None
+        :param _cff: PGM cff parameter, i.e. cos(beta)/cos(alpha)
+        :param _r1: entrance arm [m]
+        return r2: exit arm [m]
+        """
+        if _ang_graz is None:
+            _ang_graz, defAng = self.cff2ang(_en, _cff)
+    
+        lamb = _Light_eV_mu*1e-6/_en
+        m_lamb_k0 = self.m*lamb*self.grDen*1000
+        alpha = 0.5*pi - _ang_graz
+        sinBeta = m_lamb_k0 - sin(alpha)
+        if((sinBeta < -1.) or (sinBeta > 1.)): return None, None
+        r2 = (1-sinBeta**2)/(self.m*self.grDen1*1e6*lamb - (cos(alpha))**2/_r1)
+        return r2
+
     def find_orient(self, _en, _cff=None, _ang_graz=0, _ang_roll=0): #OC21112019
         """Finds optimal crystal orientation in the input beam frame (i.e. surface normal and tangential vectors) and the orientation of the output beam frame (i.e. coordinates of the longitudinal and horizontal vectors in the input beam frame)
         :param _en: photon energy [eV]
@@ -7664,8 +7682,8 @@ def srwl_wfr_emit_prop_multi_e(_e_beam, _mag, _mesh, _sr_meth, _sr_rel_prec, _n_
 
         #DEBUG
         #print('meshRes: ne=', meshRes.ne, 'eStart=', meshRes.eStart, 'eFin=', meshRes.eFin)
-        #print('meshRes: nx=', meshRes.nx, 'xStart=', meshRes.xStart, 'xFin=', meshRes.xFin)
-        #print('meshRes: ny=', meshRes.ny, 'yStart=', meshRes.yStart, 'yFin=', meshRes.yFin)
+        print('meshRes: nx=', meshRes.nx, 'xStart=', meshRes.xStart, 'xFin=', meshRes.xFin)
+        print('meshRes: ny=', meshRes.ny, 'yStart=', meshRes.yStart, 'yFin=', meshRes.yFin)
         #END DEBUG
 
         resStokes = SRWLStokes(1, 'f', meshRes.eStart, meshRes.eFin, meshRes.ne, meshRes.xStart, meshRes.xFin, meshRes.nx, meshRes.yStart, meshRes.yFin, meshRes.ny, doMutual)

@@ -2189,8 +2189,8 @@ class SRWLBeamline(object):
 
                             #optRes = self.uti_math_opt.minimize(self.cost_func_aux_int_distr, #AH05282021
                             optRes = self.uti_math_opt.optimize(self.cost_func_aux_int_distr,  # AH05282021
-                                                                _x=[ivScaleMult], _x_lim=[[0.01*ivScaleMult,100*ivScaleMult]], #to tune?
-                                                                _meth=v.om_fs[0], _opt=v.om_mp, _aux=v)
+                                                                [ivScaleMult], [[0.01*ivScaleMult,100*ivScaleMult]], #to tune?
+                                                                v.om_fs[0], _fn=v.om_fo, _opt=v.om_mp, _aux=v)
                             dCost = optRes.fun
                             #OCTEST
                             #print('cost_func: optRes.fun=', optRes.fun)
@@ -2409,7 +2409,7 @@ class SRWLBeamline(object):
                     self.arIntFit, self.meshIntFit = srwl_uti_read_intens_ascii(fPathOptIntDistr)
             
             #uti_math_opt.minimize(self.cost_func, _v.om_iv, _x_lim=_v.om_lm, _meth=_v.om_mt, _opt=_v.om_mp, _aux=_v)   #AH05282021
-            uti_math_opt.optimize(self.cost_func, _v.om_iv, _x_lim=_v.om_lm, _meth=_v.om_mt, _opt=_v.om_mp, _aux=_v)  #AH05282021
+            uti_math_opt.optimize(self.cost_func, _v.om_iv, _v.om_lm, _v.om_mt, _fn=_v.om_fo, _opt=_v.om_mp, _aux=_v)  #AH05282021
             _v = self.cancel_calc_req(_v)
         
         #---main folder

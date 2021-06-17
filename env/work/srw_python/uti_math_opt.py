@@ -24,7 +24,7 @@ import json
 
 #****************************************************************************
 
-def optimize(_f, _x, _x_lim, _meth, _opt=None, _jac=None, _hess=None, _eps=1.e-06,  _aux=None):
+def optimize(_f, _x, _x_lim, _meth, _fn=None, _opt=None, _jac=None, _hess=None, _eps=1.e-06,  _aux=None):
     """
     Wrapper of minimization methods that can be used with (limited-accuracy) forward-simulation codes such as SRW
     :param _f: the objective function to be minimized.
@@ -39,7 +39,7 @@ def optimize(_f, _x, _x_lim, _meth, _opt=None, _jac=None, _hess=None, _eps=1.e-0
     if _meth == 0:   # scanning
         opt = {'grid': [2,2,2,2], 'sqc': 0, 'samp': 4}
         if(_opt is not None): opt.update(_opt)
-        return optimize_grid_scan(_f, _opt, args=(_x_lim, _aux))
+        return optimize_grid_scan(_f, _opt, _fn, (_x_lim, _aux))
 
     elif _meth == 1: # polynomial fitting #AH02202019
         print('Start to polynomial fit')
@@ -83,7 +83,7 @@ def optimize(_f, _x, _x_lim, _meth, _opt=None, _jac=None, _hess=None, _eps=1.e-0
     else: return None
 
 #****************************************************************************
-def optimize_grid_scan(f, opt, args):
+def optimize_grid_scan(f, opt, fn, args):
     """The function does least squares polynomial fit, and then get the extrema of the polynome
     :param opt['grid']: an array, the grid size of each dimension
     :param opt['samp']: number of scanning points
@@ -101,8 +101,9 @@ def optimize_grid_scan(f, opt, args):
     pop = list(itertools.product(*x)) # to produce the list of the grid according the dimention and the size. 
     if sqc == 1:  # do the sequential calculation to obtain the cost function of each points
         pop = [{'index': i, 'x': pi, 'costf': func(np.array(pi))} for i,pi in enumerate(pop)]
-        print('pop',pop)
-        with open('data_optimize_grid_scan.txt', 'w') as f:
+        #print('pop',pop)
+        #with open('data_optimize_grid_scan.txt', 'w') as f:
+        with open(fn, 'w') as f:
             json.dump(pop, f, indent=2) # save the sample points to data file.
     elif sqc == 0: # do the parallel calculation to obtain the cost function of each points. and the data is save through mpi.run()
         pop = [np.array(pi) for pi in pop]

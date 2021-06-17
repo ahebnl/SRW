@@ -319,9 +319,10 @@ varParam = srwl_bl.srwl_uti_ext_options([
     ['om_fn', 's', '', 'input intensity distribution file name'],
     ['om_mt', 'i', 0, 'optimization method to use: 0- ..., 1- ...'],
     #['om_mp', 'i', {'deg': 6, 'samp': 60, 'maxiter': 1000}, 'method-dependent optimization parameters (dictionary)'],
-    ['om_mp', 'i', {'deg': 6, 'samp':60, 'grid':[1], 'sqc': 1}, 'method-dependent optimization parameters (dictionary): [0]- degree of fitting polynomial, [1]- number of sample points, [2]- grid size to be scanned, [3]- sequential calculation if spc=1, parallel calculation if spc=0'],
+    ['om_mp', 'i', {'deg': 6, 'samp':60, 'grid':[1], 'sqc': 0}, 'method-dependent optimization parameters (dictionary): [0]- degree of fitting polynomial, [1]- number of sample points, [2]- grid size to be scanned, [3]- sequential calculation if spc=1, parallel calculation if spc=0'],
     ['om_pr', '', '1', 'print-out auxiliary information in the course of the optimization procedure', 'store_true'],
     ['om_fl', '', '1', 'save auxiliary information during the optimization procedure to a listing file', 'store_true'],
+    ['om_fo', '', 'data_optimize_grid_scan.txt', 'file name for saving the optimization values'],
 ])
 
 
