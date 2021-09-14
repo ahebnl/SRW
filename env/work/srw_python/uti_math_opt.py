@@ -107,7 +107,7 @@ def optimize_grid_scan(f, opt, fn, args):
             json.dump(pop, f, indent=2) # save the sample points to data file.
     elif sqc == 0: # do the parallel calculation to obtain the cost function of each points. and the data is save through mpi.run()
         pop = [np.array(pi) for pi in pop]
-        dat = mpi.run(np.array(pop), func)
+        dat = mpi.run(np.array(pop), func, fn)
     return
 #****************************************************************************
 def wrap_function(function, args): #AH02202019

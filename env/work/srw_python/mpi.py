@@ -79,7 +79,8 @@ def slave(f,*args):
         data.append(f(data, *args))
         comm.send(obj=data, dest=0)
 
-def run(wi,f,*args):
+def run(wi, f, fn, *args):
+#def run(wi,f,*args):
     '''
     wi:   work_items
     f:    the function needs to be implemented on work_items
@@ -94,8 +95,9 @@ def run(wi,f,*args):
     all_data = None        
     if rank == 0:
         all_data = master(wi)
-        with open('data_optimize_grid_scan.txt', 'w') as f:
-            json.dump(all_data, f, indent=2) # save the sample points to data file.
+        with open(fn, 'w') as fname:
+        #with open('data_optimize_grid_scan.txt', 'w') as f:
+            json.dump(all_data, fname, indent=2) # save the sample points to data file.
         #numpy.savetxt('data_optimize_grid_scan.txt',all_data)   # save the sample points to data file.
     else:
         slave(f,*args)

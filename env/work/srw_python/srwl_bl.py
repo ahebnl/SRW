@@ -1991,22 +1991,22 @@ class SRWLBeamline(object):
 
         self.calc_all(v) #run forward-simulation
         cost = 0
+        frm = '{:04.6g}' #AH20210910
+        infIsReq = v.om_pr or v.om_fl #AH20210910
         val = {}  #AH20210601
+        s2pr = '  '   #AH20210601
         #Calculate cost based of weights, target and nominal values of radiation characteristics
+        def critInf(_parDescr, _parName, _subCost):
+                return (' '+_parDescr+'='+frm).format(_parName) + (' (sub-cost:'+frm+')').format(_subCost)
+
         if(v.si or v.ws or v.wg): #fully-coherent / single-electron calculations
 
             #To uncomment when / if MPI will be used for fully-coherent (e.g. time-dependent) calculations:
             #if(self.comMPI is not None): self.comMPI.Barrier() #synchronizing all processes in case if MPI is used (e.g. for partially-coherent calculations)
-
-            s2pr = '  '
-            frm = '{:04.6g}'
-            
-            def critInf(_parDescr, _parName, _subCost):
-                return (' '+_parDescr+'='+frm).format(_parName) + (' (sub-cost:'+frm+')').format(_subCost)
-                
-            wfr = v.w_res
+          
+            wfr = v.w_res #AH20210910
                         
-            infIsReq = v.om_pr or v.om_fl
+            # infIsReq = v.om_pr or v.om_fl #AH20210910
 
             if((cw['xFWHM'] > 0) or (cw['yFWHM'] > 0) or (cw['iM'] > 0) or (cw['xFWFM'] > 0) or (cw['yFWFM'] > 0)): #horizontal, vertical sizes, and peak intensity
                 
@@ -2202,7 +2202,7 @@ class SRWLBeamline(object):
         if(v.wm): #partially-coherent / multi-electron calculations (add treatment of the Gaussian-Schell case later)
 
             if(self.comMPI is not None): self.comMPI.Barrier() #synchronizing all processes in case if MPI is used (e.g. for partially-coherent calculations)
-
+            
             if(len(v.wm_fni) > 0): #load Intensity / Degree of Coherence from files and analyze the data
 
                 if(((cw['xFWHM'] > 0) or (cw['yFWHM'] > 0) or (cw['iM'] > 0)) and ((v.wm_ap == 0) or (v.wm_ap == 2))): #horizontal, vertical sizes and peak intensity
