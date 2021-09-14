@@ -1,4 +1,4 @@
-﻿"""Simple 1D & 2D plotting utilities package for "Synchrotron Radiation Workshop" (SRW).
+"""Simple 1D & 2D plotting utilities package for "Synchrotron Radiation Workshop" (SRW).
 
 ``uti_plot`` currently wraps ``matplotlib``, but other backends are
 planned.  If no suitable backend is available, ``uti_plot_init`` sets

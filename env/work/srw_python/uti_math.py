@@ -1,4 +1,4 @@
-﻿#############################################################################
+#############################################################################
 # uti_math module: misc. mathematical utilities / functions
 # v 0.04
 # Authors: O.C., Maksim Rakitin, Rebecca Ann Coles

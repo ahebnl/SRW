@@ -1055,8 +1055,7 @@ endif
 srwUtiSetValS("BrilName", BrilName, "SrwBrilAGUEnDet")
 SrwElecName=ElecName[0,strlen(ElecName)-strlen(SrwElecType)-1]
 //SrwUndName=MagName[0,strlen(MagName)-strlen(SrwUndType)-1]
-//idbUtiSetValS("nmAguStruct", nmAguStruct, "SrwBrilAGUEnDet")
-srwUtiSetValS("nmAguStruct", nmAguStruct, "SrwBrilAGUEnDet") //OC16122019
+idbUtiSetValS("nmAguStruct", nmAguStruct, "SrwBrilAGUEnDet")
 SrwKmin=Kmin
 SrwBrilHarmMin=HarmMin
 SrwBrilHarmMax=HarmMax

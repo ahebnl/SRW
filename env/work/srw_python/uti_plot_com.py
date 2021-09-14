@@ -1,4 +1,4 @@
-﻿"""uti_plot_com module containing plot utilities not specific to a particular backend
+"""uti_plot_com module containing plot utilities not specific to a particular backend
 
 .. moduleauthor:: 
 """

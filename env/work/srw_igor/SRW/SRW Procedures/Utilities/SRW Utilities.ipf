@@ -2196,23 +2196,22 @@ variable ny = dimsize(w, 1)
 variable ystep = dimdelta(w, 1)
 variable ymax = ymin + (ny - 1)*ystep
 
-//OC13012020 (uncommented)
-if(x < xmin)
-	x = xmin
-endif
-if(x > xmax)
-	x = xmax
-endif
-if(y < ymin)
-	y = ymin
-endif
-if(y > ymax)
-	y = ymax
-endif
-//OC23112017
-//if((x < xmin) || (x > xmax) || (y < ymin) || (y > ymax))
-//	return 0
+//if(x < xmin)
+//	x = xmin
 //endif
+//if(x > xmax)
+//	x = xmax
+//endif
+//if(y < ymin)
+//	y = ymin
+//endif
+//if(y > ymax)
+//	y = ymax
+//endif
+//OC23112017
+if((x < xmin) || (x > xmax) || (y < ymin) || (y > ymax))
+	return 0
+endif
 
 variable x0 = xmin + trunc((x - xmin)/xstep)*xstep
 if(x0 >= xmax)
