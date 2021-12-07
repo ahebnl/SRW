@@ -1,2 +1,5 @@
 *.pyc
-
+*.py.orig
+*.cpp.orig
+*.h.orig
+*.txt.orig

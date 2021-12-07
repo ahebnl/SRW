@@ -801,22 +801,26 @@ inline void srTGenOptElem::MultSquareMatrByVect(double** b, double* c, int n, do
 
 //*************************************************************************
 
+//inline void srTGenOptElem::CosAndSin(double x, float& Cos, float& Sin)
+//{
+//	if((x < -1.E+08) || (x > 1.E+08)) { Cos = (float)cos(x); Sin = (float)sin(x); return;} //OC13112011
+//
+//	//x -= TwoPI*((long)(x*One_dTwoPI));
+//	x -= TwoPI*((long long)(x*One_dTwoPI));
+//	if(x < 0.) x += TwoPI;
+//
+//	char ChangeSign=0;
+//	if(x > ThreePIdTwo) x -= TwoPI;
+//	else if(x > HalfPI) { x -= PI; ChangeSign = 1;}
+//
+//	double xe2 = x*x;
+//	Cos = float(1. + xe2*(a2c + xe2*(a4c + xe2*(a6c + xe2*(a8c + xe2*a10c)))));
+//	Sin = float(x*(1. + xe2*(a3s + xe2*(a5s + xe2*(a7s + xe2*(a9s + xe2*a11s))))));
+//	if(ChangeSign) { Cos = -Cos; Sin = -Sin;}
+//}
 inline void srTGenOptElem::CosAndSin(double x, float& Cos, float& Sin)
 {
-	if((x < -1.E+08) || (x > 1.E+08)) { Cos = (float)cos(x); Sin = (float)sin(x); return;} //OC13112011
-
-	//x -= TwoPI*((long)(x*One_dTwoPI));
-	x -= TwoPI*((long long)(x*One_dTwoPI));
-	if(x < 0.) x += TwoPI;
-
-	char ChangeSign=0;
-	if(x > ThreePIdTwo) x -= TwoPI;
-	else if(x > HalfPI) { x -= PI; ChangeSign = 1;}
-
-	double xe2 = x*x;
-	Cos = float(1. + xe2*(a2c + xe2*(a4c + xe2*(a6c + xe2*(a8c + xe2*a10c)))));
-	Sin = float(x*(1. + xe2*(a3s + xe2*(a5s + xe2*(a7s + xe2*(a9s + xe2*a11s))))));
-	if(ChangeSign) { Cos = -Cos; Sin = -Sin;}
+	Cos = cos(x); Sin = (float)sin(x);
 }
 
 //*************************************************************************

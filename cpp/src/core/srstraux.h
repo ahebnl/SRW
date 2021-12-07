@@ -207,6 +207,14 @@ struct srTEFieldPtrs {
 	{ 
 		pExRe = In_pExRe; pExIm = In_pExIm; pEzRe = In_pEzRe; pEzIm = In_pEzIm;
 	}
+	size_t hashcode() const {
+		size_t h = std::hash<float>{}(*pExRe);
+		h ^= std::hash<float>{}(*pExIm) << 1;
+		h ^= std::hash<float>{}(*pEzRe) << 1;
+		h ^= std::hash<float>{}(*pEzIm) << 1;
+
+		return h;
+	}
 };
 
 //*************************************************************************

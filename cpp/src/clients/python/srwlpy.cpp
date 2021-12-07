@@ -73,6 +73,7 @@ static const char strEr_BadOptL[] = "Incorrect Optical Lens structure";
 static const char strEr_BadOptAng[] = "Incorrect Optical Angle structure";
 static const char strEr_BadOptShift[] = "Incorrect Optical Shift structure";
 static const char strEr_BadOptZP[] = "Incorrect Optical Zone Plate structure";
+static const char strEr_BadOptZPD[] = "Incorrect Optical Zone PlateD structure";
 static const char strEr_BadOptWG[] = "Incorrect Optical Waveguide structure";
 static const char strEr_BadOptG[] = "Incorrect Optical Grating structure";
 static const char strEr_BadOptT[] = "Incorrect Optical Generic Transmission structure";
@@ -1776,6 +1777,17 @@ void ParseSructSRWLOptZP(SRWLOptZP* pOpt, PyObject* oOpt) //throw(...)
 	}
 }
 
+void ParseSructSRWLOptZPD(SRWLOptZPD* pOpt, PyObject* oOpt) //throw(...)
+{
+	ParseSructSRWLOptZP(pOpt, oOpt);
+
+	PyObject* o_tmp = PyObject_GetAttrString(oOpt, "dftLen");
+	if (o_tmp == 0) throw strEr_BadOptZP;
+	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptZP;
+	pOpt->dftLen = PyFloat_AsDouble(o_tmp);
+	Py_DECREF(o_tmp);
+}
+
 /************************************************************************//**
  * Parses PyObject* to SRWLOptWG*
  ***************************************************************************/
@@ -2556,6 +2568,12 @@ void ParseSructSRWLOptC(SRWLOptC* pOpt, PyObject* oOpt, vector<Py_buffer>* pvBuf
 			pOptElem = new SRWLOptZP();
 			strcpy(sOptType, "zp\0");
 			ParseSructSRWLOptZP((SRWLOptZP*)pOptElem, o);
+		}
+		else if (strcmp(sTypeName, "SRWLOptZPD") == 0) // ANHE
+		{
+			pOptElem = new SRWLOptZPD();
+			strcpy(sOptType, "zpd\0");
+			ParseSructSRWLOptZPD((SRWLOptZPD*)pOptElem, o);
 		}
 		else if(strcmp(sTypeName, "SRWLOptWG") == 0)
 		{
@@ -3877,6 +3895,7 @@ void DeallocOptCntArrays(SRWLOptC* pOptCnt)
 						else if((strcmp(sType, "aperture") == 0) || (strcmp(sType, "obstacle") == 0)) delete (SRWLOptA*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "lens") == 0) delete (SRWLOptL*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "zp") == 0) delete (SRWLOptZP*)(pOptCnt->arOpt[i]);
+						else if (strcmp(sType, "zpd") == 0) delete (SRWLOptZPD*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "waveguide") == 0) delete (SRWLOptWG*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "grating") == 0) delete (SRWLOptG*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "transmission") == 0) delete (SRWLOptT*)(pOptCnt->arOpt[i]);
@@ -3888,6 +3907,7 @@ void DeallocOptCntArrays(SRWLOptC* pOptCnt)
 						{
 							DeallocOptCntArrays((SRWLOptC*)(pOptCnt->arOpt[i]));
 						}
+						else { throw "bad sType"; }
 					}
 				}
 				//delete pOptCnt->arOpt[i];

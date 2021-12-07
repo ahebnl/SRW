@@ -148,13 +148,15 @@ public:
 	double m_dxcSub, m_dzcSub;
 	bool m_newExtWfrCreateNotAllowed; //OC130311
 
+	size_t hashcode() const; // AH
+
 	srTSRWRadStructAccessData(srTEbmDat* pElecBeam, srTTrjDat* pTrjDat, srTWfrSmp* pWfrSmp, double NxNzOversamplingFactor);
 	srTSRWRadStructAccessData(srTGsnBeam* pGsnBeam, srTWfrSmp* pWfrSmp, double NxNzOversamplingFactor);
 	srTSRWRadStructAccessData(srTSRWRadInData* pRadInData, srTEbmDat* pElecBeam, srTTrjDat* pTrjDat, srTWfrSmp* pWfrSmp, double NxNzOversamplingFactor);
 	srTSRWRadStructAccessData(srTSRWRadInData* pRadInData, srTEbmDat* pElecBeam, srTTrjDat* pTrjDat, srTWfrSmp* pWfrSmp, srTParPrecElecFld* pPrecElecFld);
 	srTSRWRadStructAccessData(srTSRWRadInData* pRadInData, srTGsnBeam* pGsnBeam, srTWfrSmp* pWfrSmp, double NxNzOversamplingFactor);
 	srTSRWRadStructAccessData(srTSRWRadInData* pSRWRadInData, int CopyData);
-	srTSRWRadStructAccessData(srTSRWRadStructAccessData* pInRadStruct);
+	srTSRWRadStructAccessData(const srTSRWRadStructAccessData* pInRadStruct);
 	srTSRWRadStructAccessData(const srTSRWRadStructAccessData&, bool createNewEmulStruct=true); //OC140411
 	srTSRWRadStructAccessData(srTWfrSmp* pWfrSmp, bool AllocateData); //used for extracting transmission characteristics of optical elements
 	srTSRWRadStructAccessData(SRWLWfr*, srTTrjDat* pTrj=0, double* arPrec=0);

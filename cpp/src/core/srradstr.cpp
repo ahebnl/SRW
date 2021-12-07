@@ -1264,12 +1264,12 @@ void srTSRWRadStructAccessData::CopyWfrAuxData(double* pInWfrAuxData) //OC261120
 
 //*************************************************************************
 
-srTSRWRadStructAccessData::srTSRWRadStructAccessData(srTSRWRadStructAccessData* pInRadStruct)
+srTSRWRadStructAccessData::srTSRWRadStructAccessData(const srTSRWRadStructAccessData* pInRadStruct)
 {// copies all data/substructures for internal use only
 	Initialize();
 	
 	if(pInRadStruct == 0) return;
-	srTSRWRadStructAccessData& InRadStruct = *pInRadStruct;
+	const srTSRWRadStructAccessData& InRadStruct = *pInRadStruct;
 
 	//long LenRadData = (InRadStruct.ne << 1)*(InRadStruct.nx)*(InRadStruct.nz);
 	long long LenRadData = (InRadStruct.ne << 1)*((long long)InRadStruct.nx)*((long long)InRadStruct.nz);
@@ -5159,3 +5159,31 @@ void srTSRWRadStructAccessData::EstimWfrRadCen(double& resR, double& resCen, cha
 }
 **/
 //*************************************************************************
+
+#include <functional>
+
+size_t srTSRWRadStructAccessData::hashcode() const
+{
+	size_t h = std::hash<bool>{}(BaseRadWasEmulated);
+	h ^= (std::hash<long>{}(ne)) << 1;
+	h ^= (std::hash<long>{}(nx)) << 1;
+	h ^= (std::hash<long>{}(nz)) << 1;
+
+	long long L = nx * nz * ne * 2;
+	for (long long i = 0; i < L; ++i) {
+		h ^= (std::hash<float>{}(pBaseRadX[i])) << 1;
+		h ^= (std::hash<float>{}(pBaseRadZ[i])) << 1;
+	}
+	h ^= (std::hash<double>{}(eStep)) << 1;
+	h ^= (std::hash<double>{}(eStart)) << 1;
+
+	h ^= (std::hash<double>{}(xStep)) << 1;
+	h ^= (std::hash<double>{}(xStart)) << 1;
+	h ^= (std::hash<double>{}(xc)) << 1;
+
+	h ^= (std::hash<double>{}(zStep)) << 1;
+	h ^= (std::hash<double>{}(zStart)) << 1;
+	h ^= (std::hash<double>{}(zc)) << 1;
+
+	return h;
+}

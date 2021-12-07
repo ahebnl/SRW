@@ -24,6 +24,7 @@
 #include "sroptgtr.h"
 #include "sroptzps.h"
 #include "sroptzp.h"
+#include "sroptzpd.h"
 #include "srmatsta.h"
 #include "srmlttsk.h"
 #include "srinterf.h"
@@ -86,6 +87,10 @@ int srTGenOptElem::SetupOpticalElement(srTStringVect* pOptElemInfo, srTDataMD* p
 	else if(!strcmp(ElemID, "ZonePlate"))
 	{
 		OptElemHndl = srTGenOptElemHndl(new srTZonePlate(pOptElemInfo));
+	}
+	else if (!strcmp(ElemID, "ZonePlateDr"))
+	{
+		OptElemHndl = srTGenOptElemHndl(new srTZonePlateD(pOptElemInfo));
 	}
 	else if(!strcmp(ElemID, "PlaneGrating"))
 	{
@@ -170,6 +175,7 @@ int srTGenOptElem::TraverseRadZXE(srTSRWRadStructAccessData* pRadAccessData, voi
 	for(int iz=0; iz<pRadAccessData->nz; iz++)
 	{
 		//if(result = srYield.Check()) return result;
+		// printf("%s out iz= %d/%d pRadAccessData HashCode = %zx\n", __FUNCTION__, iz, pRadAccessData->nz, pRadAccessData->hashcode());
 
 		float *pEx_StartForX = pEx0 + izPerZ;
 		float *pEz_StartForX = pEz0 + izPerZ;

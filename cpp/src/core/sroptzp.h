@@ -119,7 +119,7 @@ public:
 		//{// Treating linear terms analytically
 			if(!ParPrecWfrPropag.DoNotResetAnalTreatTermsAfterProp) pRadAccessData->CheckAndResetPhaseTermsLin();
 		//}
-
+		fflush(stdout);
 		return result;
 	}
 

@@ -1784,6 +1784,8 @@ class SRWLBeamline(object):
         #print('completed (lasted', round(time.time() - t0, 2), 's)')
         print('completed (lasted', round(time.time() - t0, 3), 's)')
 
+        #print('completed (lasted', round(time.time() - t0, 3), 's)')
+        print('PropagaElecField function took {:.3f}'.format(round(time.time() - t0, 3))) #AH
         #print('_wfr.Rx=',  _wfr.Rx, '   _wfr.Ry=',  _wfr.Ry)
 
         if(_pres_ang != 0): srwl.SetRepresElecField(_wfr, 'a')
@@ -1833,9 +1835,12 @@ class SRWLBeamline(object):
                 resMeshI = resStkDet.mesh
 
             if(len(_fname) > 0):
-                #sValUnitName = 'ph/s/.1%bw/mm^2' #consider allowing for other units (for FEL applications)
+                sValUnitName = 'ph/s/.1%bw/mm^2' #consider allowing for other units (for FEL applications)
+                import hashlib
+                h = hashlib.sha256()
+                h.update(arI.tobytes())
 
-                print('Saving Propagation Results ... ', end='')
+                print('Saving Propagation Results ... hash=', h.hexdigest(), end='')
                 t0 = time.time();
                 srwl_uti_save_intens_ascii(arI, resMeshI, _fname, 0, ['Photon Energy', 'Horizontal Position', 'Vertical Position', ''], _arUnits=['eV', 'm', 'm', sValUnitName])
                 #print('completed (lasted', round(time.time() - t0, 2), 's)')

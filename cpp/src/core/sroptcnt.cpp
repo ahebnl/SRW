@@ -16,6 +16,7 @@
 #include "sroptapt.h"
 #include "sroptfoc.h"
 #include "sroptzp.h"
+#include "sroptzpd.h"
 #include "sroptwgr.h"
 #include "sroptgrat.h"
 #include "sroptgtr.h"
@@ -141,6 +142,12 @@ srTCompositeOptElem::srTCompositeOptElem(const SRWLOptC& opt)
 			{
 				SRWLOptZP *p = (SRWLOptZP*)(*t_arOpt);
 				pOptElem = new srTZonePlate(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y, p->e0); //OC22062019
+				//pOptElem = new srTZonePlate(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y);
+			}
+			else if ((strcmp(sType, "zpd") == 0) || (strcmp(sType, "ZPD") == 0))
+			{
+				SRWLOptZPD* p = (SRWLOptZPD*)(*t_arOpt);
+				pOptElem = new srTZonePlateD(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y, p->e0, p->dftLen); //OC22062019
 				//pOptElem = new srTZonePlate(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y);
 			}
 			else if(strcmp(sType, "waveguide") == 0)
@@ -272,6 +279,8 @@ int srTCompositeOptElem::PropagateRadiationGuided(srTSRWRadStructAccessData& wfr
 		//srwlPrintTime("PropagateRadiationGuided: start iteration",&start1);
 		//srwlPrintTime("PropagateRadiationGuided: start iteration",&start);
 
+		time_t begin, end1, end2; // time_t is a datatype to store time values. #AH
+
 		int methNo = 0;
 		int useResizeBefore = 0;
 		int useResizeAfter = 0;
@@ -320,15 +329,25 @@ int srTCompositeOptElem::PropagateRadiationGuided(srTSRWRadStructAccessData& wfr
 			vHyO = curPropResizeInst.vHyOut;
 		}
 
+		time(&begin); // note time before execution #AH
+
 		srTParPrecWfrPropag precParWfrPropag(methNo, useResizeBefore, useResizeAfter, precFact, underSampThresh, analTreatment, (char)0, vLxO, vLyO, vLzO, vHxO, vHyO);
 
 		//Added by S.Yakubov (for profiling?) at parallelizing SRW via OpenMP:
 		//srwlPrintTime("Iteration: precParWfrPropag",&start);
 
+		printf("begin the %d/%d element.\n", elemCount, numElem); fflush(stderr);   //#AH
 		srTRadResizeVect auxResizeVect;
 		if(res = ((srTGenOptElem*)(it->rep))->PropagateRadiation(&wfr, precParWfrPropag, auxResizeVect)) return res;
 		//maybe to use "PropagateRadiationGuided" for srTCompositeOptElem?
 
+		time(&end1); // note time after execution  #AH 
+		double difference = difftime(end1, begin);
+		printf("Elem %d %.2lf seconds is taken for PropagateRadiation, wft= %zx\n", elemCount, difference, wfr.hashcode());
+
+		//if (elemCount > 12) {
+		//	printf("%.2lf seconds is taken for function(PropagateRadiation). the %d element.\n", difference, elemCount);
+		//}
 		//Added by S.Yakubov (for profiling?) at parallelizing SRW via OpenMP:
 		//srwlPrintTime("Iteration: PropagateRadiation",&start);
 
