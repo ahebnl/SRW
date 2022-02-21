@@ -228,10 +228,12 @@ void dump_raddata(const srTSRWRadStructAccessData& wfr, const char* fname, const
 {
 	fprintf(stderr, "dumping bin file: %s\n", fname);
 	ofstream out(fname, ios::out | ios::binary);
-	size_t len = strlen(title);
-	const char* tag = "SRWB1";
-	out.write(tag, 6);
-	out.write((char*)&len, sizeof len);
+	const int HDSZ = 64;
+	char buf[HDSZ];
+	memset(buf, 0, HDSZ);
+	strncpy(buf, "SRWB1", 5);
+	strncpy(buf + 5, title, HDSZ-5);
+	out.write(buf, HDSZ);
 	out.write((char*)&wfr.nz, sizeof(long));
 	out.write((char*)&wfr.nx, sizeof(long));
 	out.write((char*)&wfr.ne, sizeof(long));
@@ -257,7 +259,8 @@ void dump_raddata(const srTSRWRadStructAccessData& wfr, const char* fname, const
 
 int srTZonePlateD::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
 {
-	cout << "[WARNING!!] The ZP with aperture and drift L= " << dftLen << " hash=" << pRadAccessData->hashcode() << endl;
+	cout << "[WARNING!!] The ZP (nz=" << nzdiv << ",nx=" << nxdiv
+		 << ") with aperture and drift L= " << dftLen << " hash=" << pRadAccessData->hashcode() << endl;
 	
 	float xStep = pRadAccessData->xStep;
 	float xStart = pRadAccessData->xStart;
@@ -272,6 +275,7 @@ int srTZonePlateD::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData,
 
 #ifdef DEBUG_ZPD
 	srTSRWRadStructAccessData newRad0(pRadAccessData);
+	srTZonePlate::PropagateRadiation(&newRad0, ParPrecWfrPropag, ResBeforeAndAfterVect);
 	internal_drift.PropagateRadiation(&newRad0, ParPrecWfrPropag, ResBeforeAndAfterVect);
 	dump_raddata(newRad0, "junk.zpd.ref.bin", "zpd_reference");
 #endif
@@ -282,7 +286,7 @@ int srTZonePlateD::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData,
 	string fname = "junk.zpd0.bin";
 	dump_raddata(newRad, fname.c_str(), "zpd0");
 
-	ofstream junkfdiv("junk.main.bin");
+	ofstream junkfdiv("junk.main.txt");
 	junkfdiv << "#nzdiv,nxdiv " << nzdiv << " " << nxdiv << endl;
 #endif
 
@@ -315,17 +319,31 @@ int srTZonePlateD::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData,
 				fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
 				return result;
 			}
-#ifdef DEBUG_ZPD
-			fname = "junk.zpd1." + to_string(iz/SZZ) + "_" + to_string(ix/SZX) + ".bin";
-			dump_raddata(newRad, fname.c_str(), fname.c_str());
-			junkfdiv << "#fout " << iz << " " << ix << " " << fname << endl;
-			{
-				const auto itm = std::minmax_element(radx, radx + RADSZ);
-				fprintf(stderr, "min= %g max %g\n", *itm.first, *itm.second);
-			}
-			fprintf(stderr, "Slice (iz, ix) = %d %d Hash= %ld, Hash= %ld\n", iz, ix, pRadAccessData->hashcode(), newRad.hashcode());
-#endif
 			accumulate_rad(radx, radz, pRadAccessData->nz, pRadAccessData->nx, xStart, xStep, zStart, zStep, newRad);
+
+#ifdef DEBUG_ZPD
+			{
+				fname = "junk.zpd1." + to_string(iz / SZZ) + "_" + to_string(ix / SZX) + ".bin";
+				dump_raddata(newRad, fname.c_str(), fname.c_str());
+				junkfdiv << "#fout " << iz << " " << ix << " " << fname << endl;
+				{
+					const auto itm = std::minmax_element(radx, radx + RADSZ);
+					fprintf(stderr, "min= %g max %g\n", *itm.first, *itm.second);
+				}
+				fprintf(stderr, "Slice (iz, ix) = %d %d Hash= %ld, Hash= %ld\n", iz, ix, pRadAccessData->hashcode(), newRad.hashcode());
+
+				// dump the accumulated
+				fname = "junk.zpd1.sum." + to_string(iz / SZZ) + "_" + to_string(ix / SZX) + ".bin";
+				ofstream out(fname, ios::out | ios::binary);
+				out.write((char*)&pRadAccessData->nz, sizeof(long));
+				out.write((char*)&pRadAccessData->nx, sizeof(long));
+				out.write((char*)&pRadAccessData->ne, sizeof(long));
+				out.write((char*)&RADSZ, sizeof(long long));
+				fprintf(stderr, "write accum field %d %d %d RADSZ=%d\n", pRadAccessData->nz, pRadAccessData->nx, pRadAccessData->ne, RADSZ);
+				out.write((char*)radz, RADSZ * sizeof(float));
+				out.write((char*)radx, RADSZ * sizeof(float));
+			}
+#endif
 		}
 	}
 	
