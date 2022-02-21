@@ -1786,6 +1786,30 @@ void ParseSructSRWLOptZPD(SRWLOptZPD* pOpt, PyObject* oOpt) //throw(...)
 	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptZP;
 	pOpt->dftLen = PyFloat_AsDouble(o_tmp);
 	Py_DECREF(o_tmp);
+
+	o_tmp = PyObject_GetAttrString(oOpt, "nxdiv");
+	if (o_tmp == 0) throw strEr_BadOptZP;
+	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptZP;
+	pOpt->nxdiv = PyLong_AsLong(o_tmp);
+	Py_DECREF(o_tmp);
+
+	o_tmp = PyObject_GetAttrString(oOpt, "nzdiv");
+	if (o_tmp == 0) throw strEr_BadOptZP;
+	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptZP;
+	pOpt->nzdiv = PyLong_AsLong(o_tmp);
+	Py_DECREF(o_tmp);
+
+	o_tmp = PyObject_GetAttrString(oOpt, "pdcenter");
+	if (o_tmp == 0) throw strEr_BadOptZP;
+	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptZP;
+	pOpt->pdcenter = PyFloat_AsDouble(o_tmp);
+	Py_DECREF(o_tmp);
+
+	o_tmp = PyObject_GetAttrString(oOpt, "pdedge");
+	if (o_tmp == 0) throw strEr_BadOptZP;
+	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptZP;
+	pOpt->pdedge = PyFloat_AsDouble(o_tmp);
+	Py_DECREF(o_tmp);
 }
 
 /************************************************************************//**

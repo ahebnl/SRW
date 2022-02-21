@@ -1840,7 +1840,7 @@ class SRWLBeamline(object):
                 h = hashlib.sha256()
                 h.update(arI.tobytes())
 
-                print('Saving Propagation Results ... hash=', h.hexdigest(), end='')
+                print('Saving Propagation Results ... hash=', h.hexdigest())
                 t0 = time.time();
                 srwl_uti_save_intens_ascii(arI, resMeshI, _fname, 0, ['Photon Energy', 'Horizontal Position', 'Vertical Position', ''], _arUnits=['eV', 'm', 'm', sValUnitName])
                 #print('completed (lasted', round(time.time() - t0, 2), 's)')

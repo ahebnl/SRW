@@ -2859,9 +2859,13 @@ class SRWLOptZP(SRWLOpt):
 class SRWLOptZPD(SRWLOptZP):
     """Optical Element: Thin Lens"""
     
-    def __init__(self, _nZones=100, _rn=0.1e-03, _thick=10e-06, _delta1=1e-06, _atLen1=0.1, _delta2=0, _atLen2=1e-06, _x=0, _y=0, _e=0, _dftLen=0): #OC22062019
+    def __init__(self, _nZones=100, _rn=0.1e-03, _thick=10e-06, _delta1=1e-06, _atLen1=0.1, _delta2=0, _atLen2=1e-06, _x=0, _y=0, _e=0, _dftLen=0, _nxdiv=1, _nzdiv=1, _pdcenter=1, _pdedge=1): #OC22062019
         super().__init__(_nZones, _rn, _thick, _delta1, _atLen1, _delta2, _atLen2, _x, _y, _e)
         self.dftLen = _dftLen
+        self.nxdiv = _nxdiv
+        self.nzdiv = _nzdiv
+        self.pdcenter = _pdcenter
+        self.pdedge = _pdedge
     
 
 class SRWLOptWG(SRWLOpt):

@@ -111,7 +111,7 @@ public:
 	}
 
 	//void NextCorrectNumberForFFT(long long&); //OC26042019
-	void NextCorrectNumberForFFT(long&);
+	static void NextCorrectNumberForFFT(long&);
 };
 
 //*************************************************************************
