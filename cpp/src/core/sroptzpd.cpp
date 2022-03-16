@@ -14,7 +14,7 @@
 #include "sroptzpd.h"
 #include "sroptdrf.h"
 #include "gmfft.h"
-
+#include "sroptang.h"
 #include <cassert>
 #include <algorithm>
 #include <fstream>
@@ -136,8 +136,10 @@ void copy_sub_cell_gen(float* pdst, int nz1, int nx1, int jz, int jx,
 {
 #ifdef DEBUG_ZPD
 	{
+		fprintf(stderr, "copy subset (%d %d) of (%d %d %d,2) to (%d %d ne 2) left padding z= %d x= %d\n",
+			iz1 - iz0, ix1 - ix0, nz, nx, ne, nz1, nx1, jz, jx);
 		const auto itm = std::minmax_element(psrc, psrc + nz * nx * ne * 2);
-		fprintf(stderr, "src N (%d,%d,%d,2) %ld min= %g max %g\n", nz, nx, ne, nz * nx * ne * 2, *itm.first, *itm.second);
+		fprintf(stderr, "src N (%d,%d,%d,2) %ld jz= %d jx= %d min= %g max %g\n", nz, nx, ne, nz * nx * ne * 2, jz, jx, *itm.first, *itm.second);
 	}
 #endif
 
@@ -145,38 +147,55 @@ void copy_sub_cell_gen(float* pdst, int nz1, int nx1, int jz, int jx,
 	ix0 = clamp(ix0, 0, nx);
 	iz1 = clamp(iz1, 0, nz);
 	ix1 = clamp(ix1, 0, nx);
+	// full dimension (nz, nx, ne*2) -> (nz1, nx1, ne*2) 
+	// data block ([iz0,iz1), [ix0,ix1), ...) -> ([jz,jz+iz1-iz0), [jx,jx+ix1-ix0), ...)
+	// each z, block length=(ix1-ix0)*ne*2, from psrc + iz*(nx*ne*2) + ix0*(ne*2) 
+	// destination: pdst + (iz-iz0+jz)*(nx1*ne*2) + (ix-ix0+jx)*ne*2
 	const int ne1 = ne;
-	const long long SZZFULL = nx * ne * 2;
-	const long long SZ = (ix1 - ix0) * ne * 2;
-	const long long SZ1 = nx1 * ne1 * 2; // dest step size
-	pdst += jz * SZ1 + jx * ne1 * 2;
+	const long long DZSRC = nx * ne * 2;
+	const long long DXSRC = ne * 2;
+	const long long ZSZSRC = (ix1 - ix0) * ne * 2; // each z copy data
+	const long long DZDST = nx1 * ne * 2; // dest step size
+	const long long DXDST = ne * 2;
+	float *pdstz = pdst + jz * DZDST + jx * ne * 2;
 	for (int iz = iz0; iz < iz1; ++iz) {
-		memcpy(pdst, psrc + iz * SZZFULL + ix0 * ne * 2, SZ * (sizeof psrc[0]));
-		pdst += SZ1;
+		memcpy(pdstz, psrc + iz * DZSRC + ix0 * (ne * 2), ZSZSRC * (sizeof psrc[0]));
+		pdstz += DZDST;
 	}
-
+	// loop method
+	/*
+	for (int iz = iz0; iz < iz1; ++iz) {
+		for (int ix = ix0; ix < ix1; ++ix) {
+			for (int ie = 0; ie < ne * 2; ++ie) {
+				pdst[(jz + iz - iz0) * DZDST + (jx + ix - ix0) * DXDST + ie] = psrc[iz * DZSRC + ix * DXSRC + ie];
+			}
+		}
+	}
+	*/
 #ifdef DEBUG_ZPD
 	{
-		const auto itm = std::minmax_element(pdst - SZ * (iz1 - iz0), pdst);
-		fprintf(stderr, "dst N (%d,%d,%d,2) %ld min= %g max %g\n", iz1 - iz0, ix1 - ix0, ne, SZ * (iz1 - iz0), *itm.first, *itm.second);
+		const auto itm = std::minmax_element(pdst, pdst + nz1 * nx1 * ne * 2);
+		fprintf(stderr, "dst N (%d,%d,%d) %ld min= %g max %g\n", iz1 - iz0, ix1 - ix0, ne, DZDST * (iz1 - iz0+jz), *itm.first, *itm.second);
 	}
 #endif
 }
 
-void sel_sub_cell(srTSRWRadStructAccessData * dst, /* const */ srTSRWRadStructAccessData& wfr, int iz0, int iz1, int ix0, int ix1, int npad=4)
+void sel_sub_cell(srTSRWRadStructAccessData * dst, /* const */ srTSRWRadStructAccessData& wfr, int iz0, int iz1, int ix0, int ix1,
+	int npadz0=-1, int npadz1 = 0, int npadx0 = -1, int npadx1 = 0)
 {
 	// const int npad = 4;
-	dst->nz = iz1 - iz0 + npad * 2;
-	dst->nx = ix1 - ix0 + npad * 2;
+	// npad.. < 0 means does not count, use whatever left
+	dst->nz = iz1 - iz0 + max(0, npadz0) + max(0, npadz1);
+	dst->nx = ix1 - ix0 + max(0, npadx0) + max(0, npadx1);
 	CGenMathFFT::NextCorrectNumberForFFT(dst->nz);
 	CGenMathFFT::NextCorrectNumberForFFT(dst->nx);
-	fprintf(stderr, "nz = %d or %d (next good fft num)\n", iz1 - iz0, dst->nz);
-	fprintf(stderr, "nx = %d or %d\n", ix1 - ix0, dst->nx);
+	fprintf(stderr, "select sub cell iz= [%d, %d) or %d (next good fft num) tot src nz= %d\n", iz0, iz1, dst->nz, wfr.nz);
+	fprintf(stderr, "select sub cell ix= [%d, %d) or %d (tot src nx= %d)\n", ix0, ix1, dst->nx, wfr.nx);
 
 	long nz0 = iz1 - iz0;
 	long nx0 = ix1 - ix0;
-	int jz = (dst->nz - nz0) / 2;
-	int jx = (dst->nx - nx0) / 2;
+	int jz = npadz0 > 0 ? npadz0 : dst->nz - nz0 - max(0, npadz1); // actual padding
+	int jx = npadx0 > 0 ? npadx0 : dst->nx - nx0 - max(0, npadx1); // actual padding
 	copy_sub_cell_gen(dst->pBaseRadX, dst->nz, dst->nx, jz, jx, wfr.pBaseRadX, wfr.nz, wfr.nx, wfr.ne, iz0, iz1, ix0, ix1);
 	copy_sub_cell_gen(dst->pBaseRadZ, dst->nz, dst->nx, jz, jx, wfr.pBaseRadZ, wfr.nz, wfr.nx, wfr.ne, iz0, iz1, ix0, ix1);
 
@@ -184,15 +203,27 @@ void sel_sub_cell(srTSRWRadStructAccessData * dst, /* const */ srTSRWRadStructAc
 	
 	dst->xStep = wfr.xStep;
 	dst->zStep = wfr.zStep; 
-	dst->xWfrMin = dst->xStart = wfr.xStart + ix0 * wfr.xStep - jx*dst->xStep;
-	dst->zWfrMin = dst->zStart = wfr.zStart + iz0 * wfr.zStep - jz*dst->zStep;
+	dst->xStart = wfr.xStart + ix0 * wfr.xStep - jx*dst->xStep;
+	dst->zStart = wfr.zStart + iz0 * wfr.zStep - jz*dst->zStep;
 	
+	dst->xWfrMin = dst->xStart;
+	dst->zWfrMin = dst->zStart;
 	dst->xWfrMax = dst->xStart + dst->nx * dst->xStep;
 	dst->zWfrMax = dst->zStart + dst->nz * dst->zStep;
 
-	dst->ComputeRadMoments();
+#ifdef DEBUG_ZPD
+	fprintf(stderr, "src hash= 0x%016zx\n", wfr.hashcode());
+	fprintf(stderr, "dst hash= 0x%016zx\n", dst->hashcode());
+#endif
+
+	// dst->ComputeRadMoments();
+
+#ifdef DEBUG_ZPD
+	fprintf(stderr, "dst hash= 0x%016zx\n", dst->hashcode());
+#endif
 }
 
+/*
 void dump_raddata_txt(const srTSRWRadStructAccessData& wfr, const char *fname, const char *title)
 {
 	fprintf(stderr, "dumping file: %s\n", fname);
@@ -223,7 +254,9 @@ void dump_raddata_txt(const srTSRWRadStructAccessData& wfr, const char *fname, c
 
 	fprintf(stderr, "file dumped: %s %s\n", fname, title);
 }
+*/
 
+/*
 void dump_raddata(const srTSRWRadStructAccessData& wfr, const char* fname, const char* title)
 {
 	fprintf(stderr, "dumping bin file: %s\n", fname);
@@ -256,11 +289,12 @@ void dump_raddata(const srTSRWRadStructAccessData& wfr, const char* fname, const
 
 	fprintf(stderr, "file dumped: %s %s (bin)\n", fname, title);
 }
+*/
 
 int srTZonePlateD::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
 {
-	cout << "[WARNING!!] The ZP (nz=" << nzdiv << ",nx=" << nxdiv
-		 << ") with aperture and drift L= " << dftLen << " hash=" << pRadAccessData->hashcode() << endl;
+	cout << "[WARNING!!] The ZP (nzdiv=" << nzdiv << ",nxdiv=" << nxdiv
+		 << ") with aperture and drift L= " << dftLen << " hash=" << std::hex << pRadAccessData->hashcode() << endl;
 	
 	float xStep = pRadAccessData->xStep;
 	float xStart = pRadAccessData->xStart;
@@ -273,67 +307,168 @@ int srTZonePlateD::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData,
 
 	srTDriftSpace internal_drift(dftLen);
 
-#ifdef DEBUG_ZPD
+//#ifdef DEBUG_ZPD
 	srTSRWRadStructAccessData newRad0(pRadAccessData);
+	fprintf(stderr, "ref inp hash= 0x%016zx\n", newRad0.hashcode());
 	srTZonePlate::PropagateRadiation(&newRad0, ParPrecWfrPropag, ResBeforeAndAfterVect);
+	fprintf(stderr, "ref zp  hash= 0x%016zx\n", newRad0.hashcode());
 	internal_drift.PropagateRadiation(&newRad0, ParPrecWfrPropag, ResBeforeAndAfterVect);
-	dump_raddata(newRad0, "junk.zpd.ref.bin", "zpd_reference");
-#endif
-
-	srTSRWRadStructAccessData newRad(pRadAccessData);
+	fprintf(stderr, "ref drf hash= 0x%016zx\n", newRad0.hashcode()); 
+	
+	newRad0.dumpBinData("junk.zpd.ref.bin", "zpd_reference");
+//#endif
 
 #ifdef DEBUG_ZPD
 	string fname = "junk.zpd0.bin";
-	dump_raddata(newRad, fname.c_str(), "zpd0");
+	pRadAccessData->dumpBinData(fname, "zpd0");
+#endif
 
+	/*
+	if (int result = srTZonePlate::PropagateRadiation(pRadAccessData, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
+		fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
+		return result;
+	}
+	*/
+
+	
+
+#ifdef DEBUG_ZPD
+	// fname = "junk.zpd01.bin";
+	// newRad.dumpBinData(fname, "zpd01");
+	
 	ofstream junkfdiv("junk.main.txt");
 	junkfdiv << "#nzdiv,nxdiv " << nzdiv << " " << nxdiv << endl;
 #endif
 
-	if (nzdiv > 1) nzdiv += (pRadAccessData->nz % nzdiv ? 1 : 0);
-	if (nxdiv > 1) nxdiv += (pRadAccessData->nx % nxdiv ? 1 : 0);
-	for (int iz = 0, SZZ = pRadAccessData->nz / nzdiv; iz < pRadAccessData->nz; iz += SZZ) {
-		for (int ix = 0, SZX = pRadAccessData->nx / nxdiv; ix < pRadAccessData->nx; ix += SZX) {
-			// if (iz != 0 || ix != SZX) continue;
+	//if (nzdiv > 1) nzdiv += (pRadAccessData->nz % nzdiv ? 1 : 0);
+	//if (nxdiv > 1) nxdiv += (pRadAccessData->nx % nxdiv ? 1 : 0);
 
-#ifndef DEBUG_ZPD
-			fprintf(stderr, "split %d sz %d, %d sz %d\n", iz, SZZ, ix, SZX);
+	// original center
+	double xc0 = pRadAccessData->xStart + pRadAccessData->xStep * pRadAccessData->nx / 2.0;
+	double zc0 = pRadAccessData->zStart + pRadAccessData->zStep * pRadAccessData->nz / 2.0;
+	// average length of Width and Height
+	double wdavg = (pRadAccessData->xStep * pRadAccessData->nx / 2.0 + pRadAccessData->zStep * pRadAccessData->nz / 2.0) / 2.0;
+	
+	const int SZZ = ceil(pRadAccessData->nz * 1.0 / nzdiv);
+	const int SZX = ceil(pRadAccessData->nx * 1.0 / nxdiv);
+	for (int iz = 0; iz < nzdiv; ++iz) {
+		for (int ix = 0; ix < nxdiv; ++ix) {
+
+#ifdef DEBUG_ZPD
+			fprintf(stderr, "## split (%d,%d) of (%d,%d) sz %d sx %d\n", iz, ix, nzdiv, nxdiv, SZZ, SZX);
 #endif
+			srTSRWRadStructAccessData newRad(pRadAccessData);
 
 			memset(newRad.pBaseRadX, 0.0, RADSZ * sizeof newRad.pBaseRadX[0]);
 			memset(newRad.pBaseRadZ, 0.0, RADSZ * sizeof newRad.pBaseRadZ[0]);
-			int npad = 4;
-			if (nzdiv == 1 && nxdiv == 1) npad = 0;
-			sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, npad);
+
+			/*if (nzdiv != 1 || nxdiv != 1) {
+				int npad = 2;
+				if (ix == 0) sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, 1, 1, 1750, 1750);
+				else if (ix == 2*SZX) sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, 1, 1, 1750, 1750);
+				else sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, 1, 1, 1, 1);
+			}*/
+			int iz1 = min((iz+1) * SZZ, pRadAccessData->nz);
+			int ix1 = min((ix+1) * SZX, pRadAccessData->nx);
+			sel_sub_cell(&newRad, *pRadAccessData, iz*SZZ, iz1, ix*SZX, ix1, 0, 0, 0, 0);
+
+			if (nzdiv == 1 && nxdiv == 1) {
+				newRad.xc = pRadAccessData->xc; // for hash calc
+				newRad.zc = pRadAccessData->zc;
+				cerr << "hash= " << std::hex << pRadAccessData->hashcode() << endl;
+				cerr << "hash= " << std::hex << newRad.hashcode() << std::dec << " (iz= " << iz << "/" << nzdiv << ", ix= " << ix << "/" << nxdiv << ")\n";
+			}
 
 #ifdef DEBUG_ZPD
-			fname = "junk.zpd0." + to_string(iz/SZZ) + "_" + to_string(ix/SZX) + ".bin";
-			dump_raddata(newRad, fname.c_str(), fname.c_str());
-			junkfdiv << "#fin " << iz << " " << ix << " " << fname << endl;
+			fname = "junk.zpd00." + to_string(iz) + "_" + to_string(ix) + ".bin";
+			newRad.dumpBinData(fname, fname);
+			junkfdiv << "#fin " << iz*SZZ << " " << ix*SZX << " " << fname << endl;
 #endif
+			double xc = newRad.xStart + newRad.xStep * newRad.nx / 2;
+			newRad.xStart -= xc;
+			double ang_x = -atan(xc / dftLen);
+			double zc = newRad.zStart + newRad.zStep * newRad.nz / 2;
+			newRad.zStart -= zc;
+			double ang_z = -atan(zc / dftLen);
+
+			srTRadResize resz;
+			
+			double ri = hypot(xc - xc0, zc - zc0);
+
+			resz.pxd = pdcenter + ri / wdavg * (pdedge - pdcenter);
+			resz.pzd = pdcenter + ri / wdavg * (pdedge - pdcenter); 
+			if (nzdiv > 1 || nxdiv > 1) {
+				RadResizeGen(newRad, resz);
+
+				fprintf(stderr, "scaling pxd= %g nx= %d pzd= %g nz= %d (ri=%g wdavg= %f, ratio= %g)\n",
+					resz.pxd, newRad.nx, resz.pzd, newRad.nz, ri, wdavg, ri / wdavg);
+			}
+
+#ifdef DEBUG_ZPD
+			junkfdiv << "#pdizix " << iz << " " << ix << " pzd " << resz.pzd << " pxd " << resz.pxd << endl;
+#endif
+
+#ifdef DEBUG_ZPD
+			fprintf(stderr, "xc=%g zc=%g ang_x=%g ang_z=%g\n", xc, zc, ang_x, ang_z);
+			fprintf(stderr, "Slice iz=%d+%d ix=%d+%d z=[%g %g], x=[%g %g]\n",
+				iz, SZZ, ix, SZX, newRad.zStart, newRad.zStart+newRad.nz*newRad.zStep, newRad.xStart, newRad.xStart + newRad.nx * newRad.xStep);
+
+			fname = "junk.zpd01." + to_string(iz) + "_" + to_string(ix) + ".bin";
+			newRad.dumpBinData(fname, fname);
+			junkfdiv << "#fin " << iz*SZZ << " " << ix*SZX << " " << fname << endl;
+			if (nzdiv == 1 && nxdiv == 1) {
+				newRad.xc = pRadAccessData->xc; // for hash calc
+				newRad.zc = pRadAccessData->zc;
+				cerr << "hash= " << std::hex << newRad.hashcode() << std::dec << " (iz= " << iz << "/" << nzdiv << ", ix= " << ix << "/" << nxdiv << ")\n";
+			}
+
+			fprintf(stderr, "zpd inp hash= 0x%016zx\n", newRad.hashcode());
+#endif
+			
 			if (int result = srTZonePlate::PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
 				fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
 				return result;
 			}
+
+#ifdef DEBUG_ZPD
+
+			fname = "junk.zpd02." + to_string(iz) + "_" + to_string(ix) + ".bin";
+			newRad.dumpBinData(fname, fname);
+
+			fprintf(stderr, "zpd zp  hash= 0x%016zx\n", newRad.hashcode());
+#endif
+
 			if (int result = internal_drift.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
 				fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
 				return result;
 			}
+			
+
+			if (nzdiv > 1 || nxdiv > 1) {
+				srTOptAngle inter_angle(ang_x, ang_z);
+				if (int result = inter_angle.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
+					fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
+					return result;
+				}
+			}
+
 			accumulate_rad(radx, radz, pRadAccessData->nz, pRadAccessData->nx, xStart, xStep, zStart, zStep, newRad);
 
 #ifdef DEBUG_ZPD
+			fprintf(stderr, "zpd dft  hash= 0x%016zx\n", newRad.hashcode());
 			{
-				fname = "junk.zpd1." + to_string(iz / SZZ) + "_" + to_string(ix / SZX) + ".bin";
-				dump_raddata(newRad, fname.c_str(), fname.c_str());
-				junkfdiv << "#fout " << iz << " " << ix << " " << fname << endl;
+				fname = "junk.zpd1." + to_string(iz) + "_" + to_string(ix) + ".bin";
+				newRad.dumpBinData(fname, fname);
+				junkfdiv << "#fout " << iz*SZZ << " " << ix*SZX << " " << fname << endl;
 				{
 					const auto itm = std::minmax_element(radx, radx + RADSZ);
 					fprintf(stderr, "min= %g max %g\n", *itm.first, *itm.second);
 				}
-				fprintf(stderr, "Slice (iz, ix) = %d %d Hash= %ld, Hash= %ld\n", iz, ix, pRadAccessData->hashcode(), newRad.hashcode());
+				fprintf(stderr, "Slice (iz, ix) = %d %d Hash= 0x%016x, Hash= 0x%016x\n", iz, ix, pRadAccessData->hashcode(), newRad.hashcode());
+				
 
 				// dump the accumulated
-				fname = "junk.zpd1.sum." + to_string(iz / SZZ) + "_" + to_string(ix / SZX) + ".bin";
+				fname = "junk.zpd1.sum." + to_string(iz) + "_" + to_string(ix) + ".bin";
 				ofstream out(fname, ios::out | ios::binary);
 				out.write((char*)&pRadAccessData->nz, sizeof(long));
 				out.write((char*)&pRadAccessData->nx, sizeof(long));
@@ -354,13 +489,13 @@ int srTZonePlateD::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData,
 	free(radx);
 	free(radz);
 
-#ifdef DEBUG_ZPD
+//#ifdef DEBUG_ZPD
 	fprintf(stderr, "DONE ZPD div=(%d %d) nz=%d nx= %d\n", nzdiv, nxdiv, pRadAccessData->nz, pRadAccessData->nx);
 	fflush(stderr);
 	
-	dump_raddata(*pRadAccessData, "junk.zpd.bin", "junk.zpd.bin");
-	junkfdiv.close(); 
-#endif
+	pRadAccessData->dumpBinData("junk.zpd.bin", "junk.zpd.bin");
+//	junkfdiv.close(); 
+//#endif
 
 	return 0;
 }

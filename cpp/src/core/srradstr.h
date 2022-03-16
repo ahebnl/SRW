@@ -149,6 +149,7 @@ public:
 	bool m_newExtWfrCreateNotAllowed; //OC130311
 
 	size_t hashcode() const; // AH
+	void dumpBinData(const string& fname, const string& title) const; // AH
 
 	srTSRWRadStructAccessData(srTEbmDat* pElecBeam, srTTrjDat* pTrjDat, srTWfrSmp* pWfrSmp, double NxNzOversamplingFactor);
 	srTSRWRadStructAccessData(srTGsnBeam* pGsnBeam, srTWfrSmp* pWfrSmp, double NxNzOversamplingFactor);

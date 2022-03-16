@@ -336,6 +336,12 @@ int srTCompositeOptElem::PropagateRadiationGuided(srTSRWRadStructAccessData& wfr
 
 		//Added by S.Yakubov (for profiling?) at parallelizing SRW via OpenMP:
 		//srwlPrintTime("Iteration: precParWfrPropag",&start);
+		
+		{ // debug, AH
+			char binfname[256];
+			sprintf(binfname, "elem.%02d.0.wfr.bin", elemCount);
+			wfr.dumpBinData(binfname, binfname);
+		}
 
 		printf("begin the %d/%d element. %zx\n", elemCount, numElem, wfr.hashcode()); fflush(stderr);
 		srTRadResizeVect auxResizeVect;
@@ -344,6 +350,12 @@ int srTCompositeOptElem::PropagateRadiationGuided(srTSRWRadStructAccessData& wfr
 		time(&end2); 
 		double difference = difftime(end2, end1);
 		printf("Elem %d %.2lf seconds is taken for PropagateRadiation, wft= %zx\n", elemCount, difference, wfr.hashcode());
+		
+		{ // debug
+			char binfname[256];
+			sprintf(binfname, "elem.%02d.1.wfr.bin", elemCount);
+			wfr.dumpBinData(binfname, binfname);
+		}
 
 		//Added by S.Yakubov (for profiling?) at parallelizing SRW via OpenMP:
 		//srwlPrintTime("Iteration: PropagateRadiation",&start);
@@ -372,6 +384,11 @@ int srTCompositeOptElem::PropagateRadiationGuided(srTSRWRadStructAccessData& wfr
 
 		if(propIntIsNeeded) ExtractPropagatedIntensity(wfr, nInt, arID, arIM, arI, elemCount); //OC29082018
 		//if(propIntIsNeeded) ExtractPropagatedIntensity(wfr, nInt, arID, arIM, arI, elemCount, nInt - 1);
+		{ // debug
+			char binfname[256];
+			sprintf(binfname, "elem.%02d.2.wfr.bin", elemCount);
+			wfr.dumpBinData(binfname, binfname);
+		}
 	}
 	return 0;
 }

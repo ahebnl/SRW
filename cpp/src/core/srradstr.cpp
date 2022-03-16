@@ -5164,16 +5164,19 @@ void srTSRWRadStructAccessData::EstimWfrRadCen(double& resR, double& resCen, cha
 
 size_t srTSRWRadStructAccessData::hashcode() const
 {
+	long long L = nx * nz * ne * 2;
+	size_t h1 = 0;
+	for (long long i = 0; i < L; ++i) {
+		h1 ^= (std::hash<float>{}(pBaseRadX[i])) << 1;
+		h1 ^= (std::hash<float>{}(pBaseRadZ[i])) << 1;
+	}
+	
 	size_t h = std::hash<bool>{}(BaseRadWasEmulated);
 	h ^= (std::hash<long>{}(ne)) << 1;
 	h ^= (std::hash<long>{}(nx)) << 1;
 	h ^= (std::hash<long>{}(nz)) << 1;
 
-	long long L = nx * nz * ne * 2;
-	for (long long i = 0; i < L; ++i) {
-		h ^= (std::hash<float>{}(pBaseRadX[i])) << 1;
-		h ^= (std::hash<float>{}(pBaseRadZ[i])) << 1;
-	}
+	
 	h ^= (std::hash<double>{}(eStep)) << 1;
 	h ^= (std::hash<double>{}(eStart)) << 1;
 
@@ -5185,5 +5188,43 @@ size_t srTSRWRadStructAccessData::hashcode() const
 	h ^= (std::hash<double>{}(zStart)) << 1;
 	h ^= (std::hash<double>{}(zc)) << 1;
 
-	return h;
+	return (h1 << 4) | (h & 15);
+}
+
+#include <fstream>
+
+void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& title) const // AH
+{
+	// WARNING: this is not complete, only part of the data are dumped. // AH
+
+	fprintf(stderr, "dumping bin file: %s (nz=%d nx=%d ne=%d)\n", fname.c_str(), nz, nx, ne);
+	ofstream out(fname.c_str(), ios::out | ios::binary);
+	const int HDSZ = 64;
+	char buf[HDSZ];
+	memset(buf, 0, HDSZ);
+	strncpy(buf, "SRWB1", 5);
+	strncpy(buf + 5, title.c_str(), HDSZ - 5);
+
+	out.write(buf, HDSZ);
+	out.write((char*)&nz, sizeof(nz));
+	out.write((char*)&nx, sizeof(nx));
+	out.write((char*)&ne, sizeof(ne));
+
+	out.write((char*)&zStart, sizeof(zStart));
+	out.write((char*)&zStep, sizeof(zStep));
+	out.write((char*)&xStart, sizeof(xStart));
+	out.write((char*)&xStep, sizeof(xStep));
+
+	out.write((char*)&zWfrMin, sizeof(zWfrMin));
+	out.write((char*)&zWfrMax, sizeof(zWfrMax));
+	out.write((char*)&xWfrMin, sizeof(xWfrMin));
+	out.write((char*)&xWfrMax, sizeof(xWfrMax));
+
+	const long long N = nz * nx * ne * 2;
+	out.write((char*)pBaseRadZ, N * sizeof(*pBaseRadZ));
+	out.write((char*)pBaseRadX, N * sizeof(*pBaseRadX));
+
+	out.close();
+
+	fprintf(stderr, "dumped %s (bin) title= %s\n", fname.c_str(), title.c_str());
 }
