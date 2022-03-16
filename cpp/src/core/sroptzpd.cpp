@@ -21,7 +21,7 @@
 
 using namespace std;
 
-#define DEBUG_ZPD 5
+#define DEBUG_ZPD 1
 
 template<class T>
 constexpr const T& clamp(const T& v, const T& lo, const T& hi)
@@ -29,7 +29,7 @@ constexpr const T& clamp(const T& v, const T& lo, const T& hi)
 	return (v < lo ? lo : (v > hi ? hi : v));
 }
 
-void do_efield_2d_sample(float *peout, float z, float x, float *pe, int ne, int nz, int nx, float z0, float dz, float x0, float dx,
+void do_efield_2d_sample(float *peout, double z, double x, float *pe, int ne, int nz, int nx, double z0, double dz, double x0, double dx,
 	bool additive = false)
 {
 	// peout has len == ne*2
@@ -40,8 +40,8 @@ void do_efield_2d_sample(float *peout, float z, float x, float *pe, int ne, int 
 	int izL = floor((z - z0) / dz); // left index
 	long long SZ = nx * ne * 2;
 	// Bilinear interpolation, see https://en.wikipedia.org/wiki/Bilinear_interpolation
-	float x1 = x0 + ixL * dx, x2 = x1 + dx;
-	float z1 = z0 + izL * dz, z2 = z1 + dz;
+	double x1 = x0 + ixL * dx, x2 = x1 + dx;
+	double z1 = z0 + izL * dz, z2 = z1 + dz;
 	if (!additive) memset(peout, 0, ne * 2 * sizeof(float));
 	for (int ie = 0; ie < ne*2; ++ie) {
 		// treat as 0 if out of boundary
@@ -57,17 +57,17 @@ void do_efield_2d_sample(float *peout, float z, float x, float *pe, int ne, int 
 	}
 }
 
-void accumulate_rad(float* rdestx, float *rdestz, int nz, int nx, float x0, float dx, float z0, float dz, const srTSRWRadStructAccessData& r /*, const string& component */,
-	float zshift = 0.0, float xshift = 0.0)
+void accumulate_rad(float* rdestx, float *rdestz, int nz, int nx, double x0, double dx, double z0, double dz, const srTSRWRadStructAccessData& r /*, const string& component */,
+	double zshift = 0.0, double xshift = 0.0)
 {
 	// float* psrc = nullptr;
 	// if (component == "X") psrc = r.pBaseRadX;
 	// for each point (z, x) rdest, we sample a result from srTSRWRadStructAccessData r and accumulate
 	// we are sampling (z+zshift, x+xshift) at r
 	for (int iz = 0; iz < nz; ++iz) {
-		float z = z0 + iz * dz;
+		double z = z0 + iz * dz;
 		for (int ix = 0; ix < nx; ++ix) {
-			float x = x0 + ix * dx;
+			double x = x0 + ix * dx;
 			do_efield_2d_sample(rdestx, z+zshift, x+xshift, r.pBaseRadX, r.ne, r.nz, r.nx, r.zStart, r.zStep, r.xStart, r.xStep, true /* additive */);
 			do_efield_2d_sample(rdestz, z+zshift, x+xshift, r.pBaseRadZ, r.ne, r.nz, r.nx, r.zStart, r.zStep, r.xStart, r.xStep, true /* additive */);
 			rdestx += r.ne * 2;
@@ -81,9 +81,9 @@ void select_cell(srTSRWRadStructAccessData& wfr, double z0, double z1, double x0
 {
 	int nreset = 0, NTOT = wfr.nz * wfr.nx;
 	for (int iz = 0; iz < wfr.nz; ++iz) {
-		float z = wfr.zStart + iz * wfr.zStep;
+		double z = wfr.zStart + iz * wfr.zStep;
 		for (int ix = 0; ix < wfr.nx; ++ix) {
-			float x = wfr.xStart + ix * wfr.xStep;
+			double x = wfr.xStart + ix * wfr.xStep;
 			if (z < z0 || z >= z1 || x < x0 || x >= x1) {
 				int offset = iz * wfr.nx * wfr.ne * 2 + ix * wfr.ne * 2;
 				memset(wfr.pBaseRadX + offset, 0.0, wfr.ne * 2 * sizeof(float));
@@ -296,10 +296,10 @@ int srTZonePlateD::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData,
 	cout << "[WARNING!!] The ZP (nzdiv=" << nzdiv << ",nxdiv=" << nxdiv
 		 << ") with aperture and drift L= " << dftLen << " hash=" << std::hex << pRadAccessData->hashcode() << endl;
 	
-	float xStep = pRadAccessData->xStep;
-	float xStart = pRadAccessData->xStart;
-	float zStep = pRadAccessData->zStep;
-	float zStart = pRadAccessData->zStart;
+	double xStep = pRadAccessData->xStep;
+	double xStart = pRadAccessData->xStart;
+	double zStep = pRadAccessData->zStep;
+	double zStart = pRadAccessData->zStart;
 
 	const long long RADSZ = pRadAccessData->nz * pRadAccessData->nx * (pRadAccessData->ne * 2);
 	float* radx = (float*)calloc(RADSZ, sizeof(float));
