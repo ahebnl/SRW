@@ -337,10 +337,12 @@ int srTCompositeOptElem::PropagateRadiationGuided(srTSRWRadStructAccessData& wfr
 		//Added by S.Yakubov (for profiling?) at parallelizing SRW via OpenMP:
 		//srwlPrintTime("Iteration: precParWfrPropag",&start);
 		
-		{ // debug, AH
+		{ // debug dump input field, AH
+			/*
 			char binfname[256];
 			sprintf(binfname, "elem.%02d.0.wfr.bin", elemCount);
 			wfr.dumpBinData(binfname, binfname);
+			*/
 		}
 
 		printf("begin the %d/%d element. %zx\n", elemCount, numElem, wfr.hashcode()); fflush(stderr);
