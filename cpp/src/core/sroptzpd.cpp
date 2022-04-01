@@ -21,7 +21,7 @@
 
 using namespace std;
 
-#define DEBUG_ZPD 1
+#define DEBUG_ZPD 0
 
 template<class T>
 constexpr const T& clamp(const T& v, const T& lo, const T& hi)
@@ -223,79 +223,15 @@ void sel_sub_cell(srTSRWRadStructAccessData * dst, /* const */ srTSRWRadStructAc
 #endif
 }
 
-/*
-void dump_raddata_txt(const srTSRWRadStructAccessData& wfr, const char *fname, const char *title)
-{
-	fprintf(stderr, "dumping file: %s\n", fname);
-	ofstream out(fname);
-	out << "# " << wfr.nz << ' ' << wfr.nx << ' ' << wfr.ne << ' ' << wfr.hashcode() << endl;
-	out << "# " << title << endl;
-	out << "# zStart= " << wfr.zStart << " zStep= " << wfr.zStep << endl;
-	out << "# xStart= " << wfr.xStart << " xStep= " << wfr.xStep << endl;
-	out << "# zWfrMin= " << wfr.zWfrMin << " zWfrMax= " << wfr.zWfrMax << endl; 
-	out << "# xWfrMin= " << wfr.xWfrMin << " xWfrMax= " << wfr.xWfrMax << endl;
-	{
-		const auto itm1 = std::minmax_element(wfr.pBaseRadZ, wfr.pBaseRadZ + wfr.nz * wfr.nx * wfr.ne * 2);
-		out << "# EzMinMax " << *itm1.first << " " << *itm1.second << endl;
-		const auto itm2 = std::minmax_element(wfr.pBaseRadX, wfr.pBaseRadX + wfr.nz * wfr.nx * wfr.ne * 2);
-		out << "# ExMinMax " << *itm2.first << " " << *itm2.second << endl;
-	}
-
-	const long long N = wfr.nz * wfr.nx * wfr.ne * 2;
-	out << "# Ez " << N << endl;
-	for (long long i = 0; i < N; i += 2) {
-		out << wfr.pBaseRadZ[i] << ' ' << wfr.pBaseRadZ[i+1] << '\n';
-	}
-	out << "# Ex\n";
-	for (long long i = 0; i < N; i += 2) {
-		out << wfr.pBaseRadX[i] << ' ' << wfr.pBaseRadX[i+1] << '\n';
-	}
-	out << endl;
-
-	fprintf(stderr, "file dumped: %s %s\n", fname, title);
-}
-*/
-
-/*
-void dump_raddata(const srTSRWRadStructAccessData& wfr, const char* fname, const char* title)
-{
-	fprintf(stderr, "dumping bin file: %s\n", fname);
-	ofstream out(fname, ios::out | ios::binary);
-	const int HDSZ = 64;
-	char buf[HDSZ];
-	memset(buf, 0, HDSZ);
-	strncpy(buf, "SRWB1", 5);
-	strncpy(buf + 5, title, HDSZ-5);
-	out.write(buf, HDSZ);
-	out.write((char*)&wfr.nz, sizeof(long));
-	out.write((char*)&wfr.nx, sizeof(long));
-	out.write((char*)&wfr.ne, sizeof(long));
-	
-	out.write((char*)&wfr.zStart, sizeof(double));
-	out.write((char*)&wfr.zStep, sizeof(double));
-	out.write((char*)&wfr.xStart, sizeof(double));
-	out.write((char*)&wfr.xStep, sizeof(double));
-	
-	out.write((char*)&wfr.zWfrMin, sizeof(double));
-	out.write((char*)&wfr.zWfrMax, sizeof(double));
-	out.write((char*)&wfr.xWfrMin, sizeof(double));
-	out.write((char*)&wfr.xWfrMax, sizeof(double));
-	
-	const long long N = wfr.nz * wfr.nx * wfr.ne * 2;
-	out.write((char*)wfr.pBaseRadZ, N * sizeof(float));
-	out.write((char*)wfr.pBaseRadX, N * sizeof(float));
-
-	out.close();
-
-	fprintf(stderr, "file dumped: %s %s (bin)\n", fname, title);
-}
-*/
 
 int srTZonePlateD::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
 {
 	cout << "[WARNING!!] The ZP (nzdiv=" << nzdiv << ",nxdiv=" << nxdiv
-		 << ") with aperture and drift L= " << dftLen << " hash=" << std::hex << pRadAccessData->hashcode() << endl;
-	
+		<< ") with aperture and drift L= " << dftLen << endl;
+#if DEBUG_ZPD > 1
+	cout << "zp input hash=" << std::hex << pRadAccessData->hashcode() << endl;
+#endif
+
 	double xStep = pRadAccessData->xStep;
 	double xStart = pRadAccessData->xStart;
 	double zStep = pRadAccessData->zStep;
@@ -424,6 +360,13 @@ int srTZonePlateD::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData,
 
 			fprintf(stderr, "zpd inp hash= 0x%016zx\n", newRad.hashcode());
 #endif
+//			if (nzdiv > 1 || nxdiv > 1) {
+//				srTOptAngle inter_angle(-ang_x, -ang_z);
+//				if (int result = inter_angle.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
+//					fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
+//					return result;
+//				}
+//			}
 			
 			if (int result = srTZonePlate::PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
 				fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
