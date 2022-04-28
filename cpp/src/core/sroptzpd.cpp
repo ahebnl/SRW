@@ -21,7 +21,7 @@
 
 using namespace std;
 
-#define DEBUG_ZPD 2
+#define DEBUG_ZPD 3
 
 template<class T>
 constexpr const T& clamp(const T& v, const T& lo, const T& hi)
@@ -599,18 +599,19 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 	const int SZZ = ceil(pRadAccessData->nz * 1.0 / nzdiv);
 	const int SZX = ceil(pRadAccessData->nx * 1.0 / nxdiv);
 
-	const double fac = 1.0 / sqrt(2.0); // scaling factor of ring width
+	const double fac = 1.0 / 1.001; // sqrt(2.0); // scaling factor of ring width
 	const double FW = (pRadAccessData->nz - 1) * pRadAccessData->zStep;
 	const double w0 = (nzdiv <= 1 ? FW : FW * (1-fac) / (1-pow(fac, nzdiv))) / 2;
-	fprintf(stderr, "# center ring r = %g fac= %g, outer width= %g\n", w0, fac, w0 * pow(fac, nzdiv-1));
+	fprintf(stderr, "# center ring r = %g fac= %g, outer width= %g tot NZ= %d NX= %d\n",
+		w0, fac, w0 * pow(fac, nzdiv-1), pRadAccessData->nz, pRadAccessData->nx);
 
 	double zxi = 0.0;
 	for (int iz = 0; iz < nzdiv; ++iz) {
 
 #if DEBUG_ZPD > 1
-			fprintf(stderr, "## split %d / %d\n", iz, nzdiv);
+		fprintf(stderr, "## split %d / %d\n", iz, nzdiv);
 #endif
-		srTSRWRadStructAccessData newRad(pRadAccessData);
+		
 
 		
 
@@ -618,6 +619,7 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 		double wi = w0 * pow(fac, iz);
 
 		for (int iring = (iz == 0 ? 0 : 1); iring <= (iz == 0 ? 0 : 4); ++iring) {
+			srTSRWRadStructAccessData newRad(pRadAccessData);
 			memset(newRad.pBaseRadX, 0.0, RADSZ * sizeof newRad.pBaseRadX[0]);
 			memset(newRad.pBaseRadZ, 0.0, RADSZ * sizeof newRad.pBaseRadZ[0]);
 
@@ -625,7 +627,8 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 				int nz0 = round(w0 * 2 / pRadAccessData->zStep) + 1;
 				sel_sub_ring(newRad, pRadAccessData, 0.0, w0*2, 0, nz0, 0);
 			} else {
-				int nzi = round(wi / szi) + 1;
+				// int nzi = round(wi / szi) + 1;
+				int nzi = round(wi / pRadAccessData->zStep) + 1;
 				sel_sub_ring(newRad, pRadAccessData, zxi, wi, iring, nzi, 0);
 			}
 			
@@ -645,10 +648,10 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 			junkfdiv << "#fin " << iz << " " << iring << " " << fname << endl;
 #endif
 			double xc = newRad.xStart + newRad.xStep * newRad.nx / 2;
-			if (nxdiv > 1) newRad.xStart -= xc;
+			if (iring > 0) newRad.xStart -= xc;
 			double ang_x = -atan(xc / dftLen);
 			double zc = newRad.zStart + newRad.zStep * newRad.nz / 2;
-			if (nzdiv > 1) newRad.zStart -= zc;
+			if (iring > 0) newRad.zStart -= zc;
 			double ang_z = -atan(zc / dftLen);
 
 			srTRadResize resz;
@@ -656,14 +659,12 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 			double ri = hypot(xc - xc0, zc - zc0);
 
 			// resz.pzd = resz.pxd = 1 / pow(fac, iz);
-			resz.pzd = resz.pxd = 1.0;
+			resz.pzd = resz.pxd = (nzdiv <= 1 ? pdedge : pdcenter + (pdedge - pdcenter) * iz / (nzdiv-1.0));
 
-			if (nzdiv > 1) {
-				RadResizeGen(newRad, resz);
-
-				fprintf(stderr, "scaling pxd= %g nx= %d pzd= %g nz= %d\n",
-					resz.pxd, newRad.nx, resz.pzd, newRad.nz);
-			}
+			RadResizeGen(newRad, resz);
+			fprintf(stderr, "zStep= %g scaling pxd= %g nx= %d pzd= %g nz= %d\n",
+					newRad.zStep, resz.pxd, newRad.nx, resz.pzd, newRad.nz);
+			
 
 #if DEBUG_ZPD > 1
 			// junkfdiv << "#pdizix " << iz << " " << ix << " pzd " << resz.pzd << " pxd " << resz.pxd << endl;
@@ -701,7 +702,7 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 
 #if DEBUG_ZPD > 2
 
-			fname = "junk.zpd02." + to_string(iz) + "_" + to_string(ix) + ".bin";
+			fname = "junk.zpd02." + to_string(iz) + "_" + to_string(iring) + ".bin";
 			newRad.dumpBinData(fname, fname);
 
 			fprintf(stderr, "zpd zp  hash= 0x%016zx\n", newRad.hashcode());
@@ -713,7 +714,7 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 			}
 
 
-			if (nzdiv > 1 || nxdiv > 1) {
+			if (iring > 0) {
 				srTOptAngle inter_angle(ang_x, ang_z);
 				if (int result = inter_angle.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
 					fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
@@ -743,7 +744,7 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 #if DEBUG_ZPD > 2
 			{
 				// dump the accumulated
-				fname = "junk.zpd1.sum." + to_string(iz) + "_" + to_string(ix) + ".bin";
+				fname = "junk.zpd1.sum." + to_string(iz) + "_" + to_string(iring) + ".bin";
 				ofstream out(fname, ios::out | ios::binary);
 				out.write((char*)&pRadAccessData->nz, sizeof(long));
 				out.write((char*)&pRadAccessData->nx, sizeof(long));
