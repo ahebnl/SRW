@@ -534,12 +534,98 @@ int sel_sub_ring(srTSRWRadStructAccessData& dst, /* const */ srTSRWRadStructAcce
 	return dst.nz * dst.nx;
 }
 
+// zxll0 - lower left z/x coordinate, if <0 it is the center region
+// wzx - width (smaller one for rectangular)
+int sel_sub_ring(srTSRWRadStructAccessData& dst, /* const */ srTSRWRadStructAccessData* wfr, int iring, double zxll0, double wzx, double minstepsz)
+{	
+	// the center block or other 4 blocks
+	assert((iring == 0 && zxll0 < 0) || (iring > 0 && iring <= 4 && zxll0 > 0));
+	dst.ne = wfr->ne;
+	const double GAP = minstepsz;
+	const double WDSHORT = (iring == 0 ? 2*fabs(zxll0) : wzx - GAP);
+	const double WDLONG = (iring == 0 ? 2*fabs(zxll0) : zxll0 * 2 + wzx);
+
+	double wz = 0.0, wx = 0.0;
+	// fprintf(stderr, "select ring %d outside of (%f, %f) width= %f n= %d\n", iring, zx0, zx0, wzx, n);
+	switch (iring) {
+	case 0:
+		dst.xStart = dst.zStart = zxll0;  wz = wx = -2*zxll0;
+		break;
+	case 1: // right block
+		dst.zStart = -zxll0; wz = WDLONG;
+		dst.xStart = zxll0 + GAP; wx = WDSHORT;
+		break;
+	case 2: // bottom block
+		dst.zStart = -zxll0 - wzx; wz = WDSHORT;
+		dst.xStart = -zxll0; wx = WDLONG;
+		break;
+	case 3: // left
+		dst.zStart = -zxll0 - wzx; wz = WDLONG;
+		dst.xStart = -zxll0 - wzx; wx = WDSHORT;
+		break;
+	case 4: // top
+		dst.zStart = zxll0 + GAP; wz = WDSHORT;
+		dst.xStart = -zxll0 - wzx; wx = WDLONG;
+		break;
+	default: exit(-1);
+	}
+	
+	long nx0 = ceil(wx / minstepsz);
+	long nz0 = ceil(wz / minstepsz);
+	dst.nz = next_fft_num(nz0);
+	dst.nx = next_fft_num(nx0);
+	dst.xStep = wx / (dst.nx - 1);
+	dst.zStep = wz / (dst.nz - 1);
+	fprintf(stderr, "FFT num iring %d, nx %d +%d, nz %d +%d\n", iring, nx0, dst.nx - nx0, nz0, dst.nz - nz0);
+	
+
+	fprintf(stderr, "ring size: [%g %g], [%g %g]\n",
+		dst.zStart, dst.zStart + wz, dst.xStart, dst.xStart + wx);
+
+
+	dst.xWfrMin = dst.xStart;
+	dst.zWfrMin = dst.zStart;
+	dst.xWfrMax = dst.xStart + (dst.nx-1) * dst.xStep;
+	dst.zWfrMax = dst.zStart + (dst.nz-1) * dst.zStep;
+
+	// sampling
+	int npad = 0;
+	float* rdestz = dst.pBaseRadZ, * rdestx = dst.pBaseRadX;
+	for (int iz = 0; iz < dst.nz; ++iz) {
+		double z = dst.zStart + iz * dst.zStep;
+		if (z - dst.zStart  < npad * dst.zStep || z - dst.zStart > wz) continue;
+		for (int ix = 0; ix < dst.nx; ++ix) {
+			double x = dst.xStart + ix * dst.xStep;
+			if (x - dst.xStart  < npad * dst.xStep || x - dst.xStart > wx) continue;
+			do_efield_2d_sample(rdestx + iz * dst.nx * dst.ne * 2 + ix * dst.ne * 2, z, x, wfr->pBaseRadX, wfr->ne, wfr->nz, wfr->nx, wfr->zStart, wfr->zStep, wfr->xStart, wfr->xStep, false /* additive */);
+			do_efield_2d_sample(rdestz + iz * dst.nx * dst.ne * 2 + ix * dst.ne * 2, z, x, wfr->pBaseRadZ, wfr->ne, wfr->nz, wfr->nx, wfr->zStart, wfr->zStep, wfr->xStart, wfr->xStep, false /* additive */);
+
+			//rdestx += wfr->ne * 2;
+			//rdestz += wfr->ne * 2;
+		}
+		//
+	}
+	return dst.nz * dst.nx;
+}
+
+// pdedge = 1, keep original stepsize
+// pdcenter < 1, larger stepsize
+// iring = 0, 1, 2, ..., numring - 1
+double sub_ring_stepsize(double stepsz, double pdcenter, double pdedge, int numring, int iring)
+{
+	assert(numring > 0);
+	if (numring <= 1) return stepsz;
+	double pd = pdcenter + iring * (pdedge - pdcenter) / (numring - 1);
+	return stepsz / pd;
+}
 
 int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
 {
 	cout << "[WARNING!! Method=Rad2] The ZP (nzdiv=" << nzdiv << ",nxdiv=" << nxdiv
 		<< ") with aperture and drift L= " << dftLen << endl;
 #if DEBUG_ZPD > 1
+	fprintf(stderr, "orig field z [%g %g] nz= %d\n", pRadAccessData->zStart, pRadAccessData->zStart + pRadAccessData->zStep * pRadAccessData->nz, pRadAccessData->nz);
+	fprintf(stderr, "orig field x [%g %g] nx= %d\n", pRadAccessData->xStart, pRadAccessData->xStart + pRadAccessData->xStep * pRadAccessData->nx, pRadAccessData->nx);
 	// cout << "zp input hash=" << std::hex << pRadAccessData->hashcode() << endl;
 #endif
 
@@ -563,6 +649,7 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 	//fprintf(stderr, "ref drf hash= 0x%016zx\n", newRad0.hashcode());
 
 	newRad0.dumpBinData("junk.zpd.ref.bin", "zpd_reference");
+
 #endif
 
 #if DEBUG_ZPD > 1
@@ -605,66 +692,68 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 	fprintf(stderr, "# center ring r = %g fac= %g, outer width= %g tot NZ= %d NX= %d\n",
 		w0, fac, w0 * pow(fac, nzdiv-1), pRadAccessData->nz, pRadAccessData->nx);
 
-	double zxi = 0.0;
+	vector<double> wi{ 2 * w0, w0 * fac };
+	vector<double> zxll0{ -w0, w0 }; // starting corner of ring i
+	for (int i = 2; i < nzdiv; ++i) { wi.push_back(w0 * pow(fac, i)); zxll0.push_back(zxll0[i - 1] + wi[i - 1]); }
+
 	for (int iz = 0; iz < nzdiv; ++iz) {
 
+		double minstepsz = sub_ring_stepsize(pRadAccessData->zStep, pdcenter, pdedge, nzdiv, iz);
+		// double wi = (iz == 0 ? 2*w0 : w0 * pow(fac, iz));
+		// zxi = (iz == 0 ? -w0 : zxi + w0 * pow(fac, iz - 1));
+
 #if DEBUG_ZPD > 1
-		fprintf(stderr, "## split %d / %d\n", iz, nzdiv);
+		fprintf(stderr, "## split %d / %d xzll0= %g wd= %g\n", iz, nzdiv, zxll0[iz], wi[iz]);
 #endif
-		
-
-		
-
-		double szi = pRadAccessData->zStep * pow(fac, iz);
-		double wi = w0 * pow(fac, iz);
 
 		for (int iring = (iz == 0 ? 0 : 1); iring <= (iz == 0 ? 0 : 4); ++iring) {
 			srTSRWRadStructAccessData newRad(pRadAccessData);
 			memset(newRad.pBaseRadX, 0.0, RADSZ * sizeof newRad.pBaseRadX[0]);
 			memset(newRad.pBaseRadZ, 0.0, RADSZ * sizeof newRad.pBaseRadZ[0]);
 
-			if (iring == 0) {
-				int nz0 = round(w0 * 2 / pRadAccessData->zStep) + 1;
-				sel_sub_ring(newRad, pRadAccessData, 0.0, w0*2, 0, nz0, 0);
-			} else {
-				// int nzi = round(wi / szi) + 1;
-				int nzi = round(wi / pRadAccessData->zStep) + 1;
-				sel_sub_ring(newRad, pRadAccessData, zxi, wi, iring, nzi, 0);
-			}
+			sel_sub_ring(newRad, pRadAccessData, iring, zxll0[iz], wi[iz], minstepsz);
 			
-
 			if (nzdiv == 1) {
 				newRad.xc = pRadAccessData->xc; // for hash calc
 				newRad.zc = pRadAccessData->zc;
 				cerr << "hash= " << std::hex << pRadAccessData->hashcode() << endl;
 			}
 
-			fprintf(stderr, "ring %d %d, z [%g %g] nz= %d\n", iz, iring, newRad.zStart, newRad.zStart + newRad.zStep * newRad.nz, newRad.nz);
-			fprintf(stderr, "ring %d %d, x [%g %g] nx= %d\n", iz, iring, newRad.xStart, newRad.xStart + newRad.xStep * newRad.nx, newRad.nx);
+			fprintf(stderr, "ring %d %d, z [%g %g] nz= %d\n", iz, iring, newRad.zStart, newRad.zStart + newRad.zStep * (newRad.nz-1), newRad.nz);
+			fprintf(stderr, "ring %d %d, x [%g %g] nx= %d\n", iz, iring, newRad.xStart, newRad.xStart + newRad.xStep * (newRad.nx-1), newRad.nx);
+
 
 #if DEBUG_ZPD > 1
 			fname = "junk.zpd00." + to_string(iz) + "_" + to_string(iring) + ".bin";
-			newRad.dumpBinData(fname, fname);
+			newRad.dumpBinData(fname, "after slice");
 			junkfdiv << "#fin " << iz << " " << iring << " " << fname << endl;
 #endif
-			double xc = newRad.xStart + newRad.xStep * newRad.nx / 2;
-			if (iring > 0) newRad.xStart -= xc;
+			double xc = newRad.xStart + newRad.xStep * (newRad.nx-1.0) / 2;
 			double ang_x = -atan(xc / dftLen);
-			double zc = newRad.zStart + newRad.zStep * newRad.nz / 2;
-			if (iring > 0) newRad.zStart -= zc;
+			double zc = newRad.zStart + newRad.zStep * (newRad.nz-1.0) / 2;
 			double ang_z = -atan(zc / dftLen);
+			/*
+			if (iring > 0 && iring % 2 == 1) {
+				newRad.xStart -= xc; ang_z = 0;
+			}
+			if (iring > 0 && iring % 2 == 0) {
+				newRad.zStart -= zc; ang_x = 0;
+			}
+			*/
+			if (iring > 0) { newRad.xStart -= xc; newRad.zStart -= zc; }
 
 			srTRadResize resz;
 
 			double ri = hypot(xc - xc0, zc - zc0);
 
 			// resz.pzd = resz.pxd = 1 / pow(fac, iz);
+			/*
 			resz.pzd = resz.pxd = (nzdiv <= 1 ? pdedge : pdcenter + (pdedge - pdcenter) * iz / (nzdiv-1.0));
 
 			RadResizeGen(newRad, resz);
 			fprintf(stderr, "zStep= %g scaling pxd= %g nx= %d pzd= %g nz= %d\n",
 					newRad.zStep, resz.pxd, newRad.nx, resz.pzd, newRad.nz);
-			
+			*/
 
 #if DEBUG_ZPD > 1
 			// junkfdiv << "#pdizix " << iz << " " << ix << " pzd " << resz.pzd << " pxd " << resz.pxd << endl;
@@ -677,7 +766,7 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 				newRad.xStart, newRad.xStart + newRad.nx * newRad.xStep, newRad.nx);
 
 			fname = "junk.zpd01." + to_string(iz) + "_" + to_string(iring) + ".bin";
-			newRad.dumpBinData(fname, fname);
+			newRad.dumpBinData(fname, "after resize and shift");
 			junkfdiv << "#fin " << iz << " " << iring << " " << fname << endl;
 			if (nzdiv == 1 && nxdiv == 1) {
 				newRad.xc = pRadAccessData->xc; // for hash calc
@@ -703,7 +792,7 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 #if DEBUG_ZPD > 2
 
 			fname = "junk.zpd02." + to_string(iz) + "_" + to_string(iring) + ".bin";
-			newRad.dumpBinData(fname, fname);
+			newRad.dumpBinData(fname, "after ZP, before drift");
 
 			fprintf(stderr, "zpd zp  hash= 0x%016zx\n", newRad.hashcode());
 #endif
@@ -724,6 +813,8 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 
 #if DEBUG_ZPD > 2
 			fprintf(stderr, "zpd dft  hash= 0x%016zx\n", newRad.hashcode());
+			// fname = "junk.zpd03." + to_string(iz) + "_" + to_string(iring) + ".bin";
+			//newRad.dumpBinData(fname, "after drift and phase/angle");
 #endif
 
 			accumulate_rad(radx, radz, pRadAccessData->nz, pRadAccessData->nx, xStart, xStep, zStart, zStep, newRad);
@@ -731,7 +822,7 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 #if DEBUG_ZPD > 1
 			{
 				fname = "junk.zpd1." + to_string(iz) + "_" + to_string(iring) + ".bin";
-				newRad.dumpBinData(fname, fname);
+				newRad.dumpBinData(fname, "after drift and phase/angle");
 				junkfdiv << "#fout " << iz << " " << iring << " " << fname << endl;
 				{
 					const auto itm = std::minmax_element(radx, radx + RADSZ);
@@ -756,7 +847,6 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 			}
 #endif
 		}
-		zxi += wi;
 	}
 
 
