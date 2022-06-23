@@ -61,8 +61,10 @@ public:
 	{// e in eV; Length in m !!!
 	 // Operates on Coordinates side !!!
 		double twoPi_d_Lambda = (5.06773065e+06)*EXZ.e;
-		double phaseShift = twoPi_d_Lambda*(AngX*EXZ.x + AngY*EXZ.z); //to check
-
+		// double phaseShift = twoPi_d_Lambda*(AngX*EXZ.x + AngY*EXZ.z); //to check
+		//double L = 0.00100763;
+		//double phaseShift = twoPi_d_Lambda * (AngX * (EXZ.x + AngX*L/2) + AngY * (EXZ.z+ AngY * L / 2)); //to check
+		double phaseShift = twoPi_d_Lambda * (tan(AngX) * EXZ.x + tan(AngY) * EXZ.z); //to check
 		double cosPh = cos(phaseShift), sinPh = sin(phaseShift);
 		double NewExRe = (*(EPtrs.pExRe))*cosPh - (*(EPtrs.pExIm))*sinPh;
 		double NewExIm = (*(EPtrs.pExRe))*sinPh + (*(EPtrs.pExIm))*cosPh;

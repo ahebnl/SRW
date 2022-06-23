@@ -147,7 +147,7 @@ srTCompositeOptElem::srTCompositeOptElem(const SRWLOptC& opt)
 			else if ((strcmp(sType, "zpd") == 0) || (strcmp(sType, "ZPD") == 0))
 			{
 				SRWLOptZPD* p = (SRWLOptZPD*)(*t_arOpt);
-				pOptElem = new srTZonePlateD(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y, p->e0, p->dftLen, p->nxdiv, p->nzdiv, p->pdcenter, p->pdedge); //OC22062019
+				pOptElem = new srTZonePlateD(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y, p->e0, p->dftLen, p->nxdiv, p->nzdiv, p->pdcenter, p->pdedge, p->rdivs); //OC22062019
 				//pOptElem = new srTZonePlate(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y);
 			}
 			else if(strcmp(sType, "waveguide") == 0)

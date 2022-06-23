@@ -370,6 +370,7 @@ struct SRWLStructOpticsZonePlateD : public  SRWLStructOpticsZonePlate {
 	int nzdiv;
 	double pdcenter;
 	double pdedge;
+	double rdivs[32]; // 
 };
 typedef struct SRWLStructOpticsZonePlateD SRWLOptZPD;
 
