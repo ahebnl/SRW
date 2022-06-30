@@ -73,7 +73,7 @@ static const char strEr_BadOptL[] = "Incorrect Optical Lens structure";
 static const char strEr_BadOptAng[] = "Incorrect Optical Angle structure";
 static const char strEr_BadOptShift[] = "Incorrect Optical Shift structure";
 static const char strEr_BadOptZP[] = "Incorrect Optical Zone Plate structure";
-static const char strEr_BadOptZPD[] = "Incorrect Optical Zone PlateD structure";
+static const char strEr_BadOptCD[] = "Incorrect Optical Connect Drift structure";
 static const char strEr_BadOptWG[] = "Incorrect Optical Waveguide structure";
 static const char strEr_BadOptG[] = "Incorrect Optical Grating structure";
 static const char strEr_BadOptT[] = "Incorrect Optical Generic Transmission structure";
@@ -1777,43 +1777,43 @@ void ParseSructSRWLOptZP(SRWLOptZP* pOpt, PyObject* oOpt) //throw(...)
 	}
 }
 
-void ParseSructSRWLOptZPD(SRWLOptZPD* pOpt, PyObject* oOpt) //throw(...)
+void ParseSructSRWLOptCD(SRWLOptCD* pOpt, PyObject* oOpt) //throw(...)
 {
 	ParseSructSRWLOptZP(pOpt, oOpt);
 
 	PyObject* o_tmp = PyObject_GetAttrString(oOpt, "dftLen");
-	if (o_tmp == 0) throw strEr_BadOptZPD;
-	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptZPD;
+	if (o_tmp == 0) throw strEr_BadOptCD;
+	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptCD;
 	pOpt->dftLen = PyFloat_AsDouble(o_tmp);
 	Py_DECREF(o_tmp);
 
 	o_tmp = PyObject_GetAttrString(oOpt, "nxdiv");
-	if (o_tmp == 0) throw strEr_BadOptZPD;
-	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptZPD;
+	if (o_tmp == 0) throw strEr_BadOptCD;
+	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptCD;
 	pOpt->nxdiv = PyLong_AsLong(o_tmp);
 	Py_DECREF(o_tmp);
 
 	o_tmp = PyObject_GetAttrString(oOpt, "nzdiv");
-	if (o_tmp == 0) throw strEr_BadOptZPD;
-	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptZPD;
+	if (o_tmp == 0) throw strEr_BadOptCD;
+	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptCD;
 	pOpt->nzdiv = PyLong_AsLong(o_tmp);
 	Py_DECREF(o_tmp);
 
 	o_tmp = PyObject_GetAttrString(oOpt, "pdcenter");
-	if (o_tmp == 0) throw strEr_BadOptZPD;
-	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptZPD;
+	if (o_tmp == 0) throw strEr_BadOptCD;
+	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptCD;
 	pOpt->pdcenter = PyFloat_AsDouble(o_tmp);
 	Py_DECREF(o_tmp);
 
 	o_tmp = PyObject_GetAttrString(oOpt, "pdedge");
-	if (o_tmp == 0) throw strEr_BadOptZPD;
-	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptZPD;
+	if (o_tmp == 0) throw strEr_BadOptCD;
+	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptCD;
 	pOpt->pdedge = PyFloat_AsDouble(o_tmp);
 	Py_DECREF(o_tmp);
 
 	o_tmp = PyObject_GetAttrString(oOpt, "rdivs");
-	if (o_tmp == 0) throw strEr_BadOptZPD;
-	if (!PyList_Check(o_tmp)) throw strEr_BadOptZPD;
+	if (o_tmp == 0) throw strEr_BadOptCD;
+	if (!PyList_Check(o_tmp)) throw strEr_BadOptCD;
 	// pOpt->pdedge = PyFloat_AsDouble(o_tmp);
 	
 	const int NRDIV = int(PyList_Size(o_tmp));
@@ -1830,7 +1830,7 @@ void ParseSructSRWLOptZPD(SRWLOptZPD* pOpt, PyObject* oOpt) //throw(...)
 	}
 	if (pOpt->rdivs[2 * NRDIV - 2] != 1.0) {
 		fprintf(stderr, "the last div must 1.0 (not %g), i.e. extends to the half-width\n", pOpt->rdivs[2*NRDIV-2]);
-		throw strEr_BadOptZPD;
+		throw strEr_BadOptCD;
 	}
 	// fprintf(stderr, "layers size: %d\n", PyList_Size(o_tmp));
 	Py_DECREF(o_tmp);
@@ -2617,11 +2617,11 @@ void ParseSructSRWLOptC(SRWLOptC* pOpt, PyObject* oOpt, vector<Py_buffer>* pvBuf
 			strcpy(sOptType, "zp\0");
 			ParseSructSRWLOptZP((SRWLOptZP*)pOptElem, o);
 		}
-		else if (strcmp(sTypeName, "SRWLOptZPD") == 0) // ANHE
+		else if (strcmp(sTypeName, "SRWLOptCD") == 0) // ANHE
 		{
-			pOptElem = new SRWLOptZPD();
-			strcpy(sOptType, "zpd\0");
-			ParseSructSRWLOptZPD((SRWLOptZPD*)pOptElem, o);
+			pOptElem = new SRWLOptCD();
+			strcpy(sOptType, "cd\0");
+			ParseSructSRWLOptCD((SRWLOptCD*)pOptElem, o);
 		}
 		else if(strcmp(sTypeName, "SRWLOptWG") == 0)
 		{
@@ -3943,7 +3943,7 @@ void DeallocOptCntArrays(SRWLOptC* pOptCnt)
 						else if((strcmp(sType, "aperture") == 0) || (strcmp(sType, "obstacle") == 0)) delete (SRWLOptA*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "lens") == 0) delete (SRWLOptL*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "zp") == 0) delete (SRWLOptZP*)(pOptCnt->arOpt[i]);
-						else if (strcmp(sType, "zpd") == 0) delete (SRWLOptZPD*)(pOptCnt->arOpt[i]);
+						else if (strcmp(sType, "cd") == 0) delete (SRWLOptCD*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "waveguide") == 0) delete (SRWLOptWG*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "grating") == 0) delete (SRWLOptG*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "transmission") == 0) delete (SRWLOptT*)(pOptCnt->arOpt[i]);

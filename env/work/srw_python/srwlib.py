@@ -2856,7 +2856,7 @@ class SRWLOptZP(SRWLOpt):
         aux = lamb/two_drn
         return (two_drn*self.rn/lamb)*sqrt(1 - aux*aux)
 
-class SRWLOptZPD(SRWLOptZP):
+class SRWLOptCD(SRWLOptZP):
     """Optical Element: Thin Lens"""
     
     def __init__(self, _nZones=100, _rn=0.1e-03, _thick=10e-06, _delta1=1e-06, _atLen1=0.1, _delta2=0, _atLen2=1e-06, _x=0, _y=0, _e=0, _dftLen=0, _pdcenter=1, _pdedge=1, _rdivs=[]): #OC22062019

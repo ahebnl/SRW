@@ -364,7 +364,7 @@ typedef struct SRWLStructOpticsZonePlate SRWLOptZP;
  * Optical Element:
  * Zone Plate ("zpd" type)
  */
-struct SRWLStructOpticsZonePlateD : public  SRWLStructOpticsZonePlate {
+struct SRWLStructOpticsConnectDrift : public  SRWLStructOpticsZonePlate {
 	double dftLen;
 	int nxdiv;
 	int nzdiv;
@@ -372,7 +372,7 @@ struct SRWLStructOpticsZonePlateD : public  SRWLStructOpticsZonePlate {
 	double pdedge;
 	double rdivs[32]; // 
 };
-typedef struct SRWLStructOpticsZonePlateD SRWLOptZPD;
+typedef struct SRWLStructOpticsConnectDrift SRWLOptCD;
 
 /**
  * Optical Element:

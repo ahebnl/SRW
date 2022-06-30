@@ -24,7 +24,7 @@
 #include "sroptgtr.h"
 #include "sroptzps.h"
 #include "sroptzp.h"
-#include "sroptzpd.h"
+#include "sroptcd.h"
 #include "srmatsta.h"
 #include "srmlttsk.h"
 #include "srinterf.h"
@@ -88,9 +88,9 @@ int srTGenOptElem::SetupOpticalElement(srTStringVect* pOptElemInfo, srTDataMD* p
 	{
 		OptElemHndl = srTGenOptElemHndl(new srTZonePlate(pOptElemInfo));
 	}
-	else if (!strcmp(ElemID, "ZonePlateDr"))
+	else if (!strcmp(ElemID, "ConnectDrift"))
 	{
-		OptElemHndl = srTGenOptElemHndl(new srTZonePlateD(pOptElemInfo));
+		OptElemHndl = srTGenOptElemHndl(new srTConnectDrift(pOptElemInfo));
 	}
 	else if(!strcmp(ElemID, "PlaneGrating"))
 	{

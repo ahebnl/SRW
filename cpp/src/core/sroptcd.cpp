@@ -13,7 +13,7 @@
  * @version 1.0
  ***************************************************************************/
 
-#include "sroptzpd.h"
+#include "sroptcd.h"
 #include "sroptdrf.h"
 #include "gmfft.h"
 #include "sroptang.h"
@@ -83,13 +83,13 @@ void accumulate_rad(float* rdestx, float *rdestz, int nz, int nx, double x0, dou
 	}
 }
 
-void ZPDRadStructHelper::add(srTSRWRadStructAccessData* dest, const srTSRWRadStructAccessData* src)
+void CDRadStructHelper::add(srTSRWRadStructAccessData* dest, const srTSRWRadStructAccessData* src)
 {
 	accumulate_rad(dest->pBaseRadX, dest->pBaseRadZ, dest->nz, dest->nx, dest->xStart, dest->xStep, dest->zStart, dest->zStep, *src);
 }
 
 // dest will keep its mem size (nz, nx, ne), but new xStart, xStep
-void ZPDRadStructHelper::assign(srTSRWRadStructAccessData* dest, const srTSRWRadStructAccessData* src)
+void CDRadStructHelper::assign(srTSRWRadStructAccessData* dest, const srTSRWRadStructAccessData* src)
 {
 	// fprintf(stderr, "BaseRadWasEmulated=%d\n", dest->BaseRadWasEmulated);	
 	dest->zStart = src->zStart;
@@ -263,7 +263,7 @@ void sel_sub_cell_zx(srTSRWRadStructAccessData* dst, /* const */ srTSRWRadStruct
 	sel_sub_cell(dst, wfr, iz0, iz1, ix0, ix1, npadz0, npadz1, npadx0, npadx1);
 }
 
-double srTZonePlateD::max_div_width() const
+double srTConnectDrift::max_div_width() const
 {
 	if (nzdiv == 0) return 0.0;
 	double wmax = 2 * rdivs[0]; // full width of center block
@@ -273,7 +273,7 @@ double srTZonePlateD::max_div_width() const
 	return wmax;
 }
 
-double srTZonePlateD::maxpd() const
+double srTConnectDrift::maxpd() const
 {
 	if (nzdiv == 0) return 0.0;
 	double mpd = rdivs[1];
@@ -281,7 +281,7 @@ double srTZonePlateD::maxpd() const
 	return mpd;
 }
 
-void srTZonePlateD::fill_div_range(vector<int>& idx, int nx) const
+void srTConnectDrift::fill_div_range(vector<int>& idx, int nx) const
 {
 	// assert(ix >= 1 && ix <= 2 * nzdiv - 1);
 	assert(nzdiv > 0 && nxdiv > 0 && nzdiv == nxdiv);
@@ -303,7 +303,7 @@ void srTZonePlateD::fill_div_range(vector<int>& idx, int nx) const
 }
 
 
-void srTZonePlateD::init_dest_rad(srTSRWRadStructAccessData& rad, vector<int>& xidxdiv, vector<int>& zidxdiv) const
+void srTConnectDrift::init_dest_rad(srTSRWRadStructAccessData& rad, vector<int>& xidxdiv, vector<int>& zidxdiv) const
 {
 	double zStep = rad.zStep, xStep = rad.xStep;
 	double wx = xStep*(xidxdiv[1] - xidxdiv[0]);
@@ -341,7 +341,7 @@ void srTZonePlateD::init_dest_rad(srTSRWRadStructAccessData& rad, vector<int>& x
 	memset(rad.pBaseRadZ, 0, sz * sizeof rad.pBaseRadZ[0]);
 }
 
-int srTZonePlateD::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
+int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
 {
 	cout << "[WARNING!!] The ZP (nzdiv=" << nzdiv << ",nxdiv=" << nxdiv
 		<< ") with aperture and drift L= " << dftLen << endl;
@@ -520,7 +520,7 @@ int srTZonePlateD::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTP
 			}
 
 #if DEBUG_ZPD > 2
-			ZPDRadStructHelper::add(&radAfterZP, &newRad);
+			CDRadStructHelper::add(&radAfterZP, &newRad);
 
 			fname = "junk.zpd02." + to_string(irz) + "_" + to_string(irx) + ".bin";
 			newRad.dumpBinData(fname, fname);
@@ -548,7 +548,7 @@ int srTZonePlateD::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTP
 #endif
 
 			// accumulate_rad(destRad.pBaseRadX, destRad.pBaseRadZ, pRadAccessData->nz, pRadAccessData->nx, xStart, xStep, zStart, zStep, newRad);
-			ZPDRadStructHelper::add(&destRad, &newRad);
+			CDRadStructHelper::add(&destRad, &newRad);
 			
 #if DEBUG_ZPD > 1
 			{
@@ -599,7 +599,7 @@ int srTZonePlateD::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTP
 	// pRadAccessData->ReAllocBaseRadAccordingToNeNxNz();
 	pRadAccessData->ModifyWfrNeNxNz();
 
-	ZPDRadStructHelper::assign(pRadAccessData, &destRad);
+	CDRadStructHelper::assign(pRadAccessData, &destRad);
 	
 	//free(radx);
 	//free(radz);
@@ -786,7 +786,7 @@ double sub_ring_stepsize(double stepsz, double pdcenter, double pdedge, int numr
 	return stepsz / pd;
 }
 
-int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
+int srTConnectDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
 {
 	cout << "[WARNING!! Method=Rad2] The ZP (nzdiv=" << nzdiv << ",nxdiv=" << nxdiv
 		<< ") with aperture and drift L= " << dftLen << endl;
@@ -1037,7 +1037,7 @@ int srTZonePlateD::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTP
 }
 
 
-int srTZonePlateD::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
+int srTConnectDrift::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
 {
 	assert(nxdiv == nzdiv);
 	for (int i = 0; i < nzdiv; ++i) {
@@ -1049,7 +1049,7 @@ int srTZonePlateD::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData,
 }
 
 
-int srTZonePlateD::test_kick(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
+int srTConnectDrift::test_kick(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
 {
 	cout << "[WARNING!!] The ZP (nzdiv=" << nzdiv << ",nxdiv=" << nxdiv
 		<< ") with aperture and drift L= " << dftLen << endl;

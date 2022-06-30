@@ -16,7 +16,7 @@
 #include "sroptapt.h"
 #include "sroptfoc.h"
 #include "sroptzp.h"
-#include "sroptzpd.h"
+#include "sroptcd.h"
 #include "sroptwgr.h"
 #include "sroptgrat.h"
 #include "sroptgtr.h"
@@ -144,10 +144,10 @@ srTCompositeOptElem::srTCompositeOptElem(const SRWLOptC& opt)
 				pOptElem = new srTZonePlate(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y, p->e0); //OC22062019
 				//pOptElem = new srTZonePlate(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y);
 			}
-			else if ((strcmp(sType, "zpd") == 0) || (strcmp(sType, "ZPD") == 0))
+			else if ((strcmp(sType, "cd") == 0) || (strcmp(sType, "CD") == 0))
 			{
-				SRWLOptZPD* p = (SRWLOptZPD*)(*t_arOpt);
-				pOptElem = new srTZonePlateD(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y, p->e0, p->dftLen, p->nxdiv, p->nzdiv, p->pdcenter, p->pdedge, p->rdivs); //OC22062019
+				SRWLOptCD* p = (SRWLOptCD*)(*t_arOpt);
+				pOptElem = new srTConnectDrift(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y, p->e0, p->dftLen, p->nxdiv, p->nzdiv, p->pdcenter, p->pdedge, p->rdivs); //OC22062019
 				//pOptElem = new srTZonePlate(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y);
 			}
 			else if(strcmp(sType, "waveguide") == 0)
