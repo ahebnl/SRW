@@ -1777,6 +1777,9 @@ void ParseSructSRWLOptZP(SRWLOptZP* pOpt, PyObject* oOpt) //throw(...)
 	}
 }
 
+/************************************************************************//**
+ * Parses PyObject* to SRWLOptCD*
+ ***************************************************************************/
 void ParseSructSRWLOptCD(SRWLOptCD* pOpt, PyObject* oOpt) //throw(...)
 {
 	// ParseSructSRWLOptZP(pOpt, oOpt);
@@ -1790,51 +1793,47 @@ void ParseSructSRWLOptCD(SRWLOptCD* pOpt, PyObject* oOpt) //throw(...)
 	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptCD;
 	pOpt->dftLen = PyFloat_AsDouble(o_tmp);
 	Py_DECREF(o_tmp);
-	/*
-	o_tmp = PyObject_GetAttrString(oOpt, "nxdiv");
-	if (o_tmp == 0) throw strEr_BadOptCD;
-	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptCD;
-	pOpt->nxdiv = PyLong_AsLong(o_tmp);
-	Py_DECREF(o_tmp);
 
-	o_tmp = PyObject_GetAttrString(oOpt, "nzdiv");
-	if (o_tmp == 0) throw strEr_BadOptCD;
-	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptCD;
-	pOpt->nzdiv = PyLong_AsLong(o_tmp);
-	Py_DECREF(o_tmp);
-
-	o_tmp = PyObject_GetAttrString(oOpt, "pdcenter");
-	if (o_tmp == 0) throw strEr_BadOptCD;
-	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptCD;
-	pOpt->pdcenter = PyFloat_AsDouble(o_tmp);
-	Py_DECREF(o_tmp);
-
-	o_tmp = PyObject_GetAttrString(oOpt, "pdedge");
-	if (o_tmp == 0) throw strEr_BadOptCD;
-	if (!PyNumber_Check(o_tmp)) throw strEr_BadOptCD;
-	pOpt->pdedge = PyFloat_AsDouble(o_tmp);
-	Py_DECREF(o_tmp);
-	*/
-	o_tmp = PyObject_GetAttrString(oOpt, "rdivs");
+	o_tmp = PyObject_GetAttrString(oOpt, "xzdivs");
 	if (o_tmp == 0) throw strEr_BadOptCD;
 	if (!PyList_Check(o_tmp)) throw strEr_BadOptCD;
-	// pOpt->pdedge = PyFloat_AsDouble(o_tmp);
+	// pOpt->pdedge = PyFloat_AsDouble(o_tmp); 
 	
-	const int NRDIV = int(PyList_Size(o_tmp));
-	pOpt->nxdiv = pOpt->nzdiv = NRDIV;
-	for (int i = 0; i < NRDIV; ++i) {
-		if (2 * i > 32) {
-			fprintf(stderr, "the 'rdivs' are too long! more than 16 divides");
-			break;
+	const int NXZDIV = int(PyList_Size(o_tmp)) - 2;
+	assert(NXZDIV > 0);
+	{
+		PyObject* rx = PyList_GetItem(o_tmp, 0);
+		const int nx = int(PyList_Size(rx));
+		assert(nx < 32); // hard limit in sroptcd.h
+		for (int j = 0; j < nx; ++j) pOpt->xdivs[j] = PyFloat_AsDouble(PyList_GetItem(rx, j));
+		pOpt->nxdiv = nx;
+		
+		if (pOpt->xdivs[nx -1] != 1.0) {
+			fprintf(stderr, "the last div must 1.0 (not %g), i.e. extends to the half-width\n", pOpt->xdivs[nx-1]);
+			throw strEr_BadOptCD;
 		}
-		PyObject* ri = PyList_GetItem(o_tmp, i);
-		pOpt->rdivs[i * 2] = PyFloat_AsDouble(PyTuple_GetItem(ri, 0));
-		pOpt->rdivs[i * 2 + 1] = PyFloat_AsDouble(PyTuple_GetItem(ri, 1));
 	}
-	if (pOpt->rdivs[2 * NRDIV - 2] != 1.0) {
-		fprintf(stderr, "the last div must 1.0 (not %g), i.e. extends to the half-width\n", pOpt->rdivs[2*NRDIV-2]);
-		throw strEr_BadOptCD;
+	{
+		PyObject* rz = PyList_GetItem(o_tmp, 1);
+		const int nz = int(PyList_Size(rz));
+		assert(nz < 32); // hard limit in sroptcd.h
+		for (int j = 0; j < nz; ++j) pOpt->zdivs[j] = PyFloat_AsDouble(PyList_GetItem(rz, j));
+		pOpt->nzdiv = nz;
 	}
+	
+	PyObject* crsz = PyList_GetItem(o_tmp, 2);
+	for (int ix = 0; ix < pOpt->nxdiv; ++ix) {
+		for (int iz = 0; iz < pOpt->nzdiv; ++iz) {
+			int k = ix * pOpt->nzdiv + iz;
+			PyObject* ri = PyList_GetItem(crsz, k);
+			pOpt->crsz[k * 5] = PyLong_AsLong(PyList_GetItem(ri, 0));
+			pOpt->crsz[k * 5 + 1] = PyFloat_AsDouble(PyList_GetItem(ri, 1));
+			pOpt->crsz[k * 5 + 2] = PyFloat_AsDouble(PyList_GetItem(ri, 2));
+			pOpt->crsz[k * 5 + 3] = PyFloat_AsDouble(PyList_GetItem(ri, 3));
+			pOpt->crsz[k * 5 + 4] = PyFloat_AsDouble(PyList_GetItem(ri, 4));
+		}
+	}
+	
 	// fprintf(stderr, "layers size: %d\n", PyList_Size(o_tmp));
 	Py_DECREF(o_tmp);
 }

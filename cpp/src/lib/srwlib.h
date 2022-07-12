@@ -362,12 +362,15 @@ typedef struct SRWLStructOpticsZonePlate SRWLOptZP;
 
 /**
  * Optical Element:
- * Zone Plate ("zpd" type)
+ * Connect Drift ("cd" type)
  */
+
 struct SRWLStructOpticsConnectDrift: public SRWLStructOpticsZonePlate {
-	double dftLen;
+	SRWLStructOpticsZonePlate* zpSub;
+	double dftLen; /* length [m]*/
 	int nxdiv, nzdiv;
-	double rdivs[32]; // 
+	double xdivs[32], zdivs[32]; // divided ratio along horizontal (xdivs) and vertical (zdivs) direction
+	double crsz[5 * 32 * 32]; // each cell has (method, px_range, px_density, pz_range, pz_density)
 };
 typedef struct SRWLStructOpticsConnectDrift SRWLOptCD;
 

@@ -2857,15 +2857,18 @@ class SRWLOptZP(SRWLOpt):
         return (two_drn*self.rn/lamb)*sqrt(1 - aux*aux)
 
 class SRWLOptCD(SRWLOpt):
-    """Optical Element: Thin Lens"""
+    """Optical Element: Connect Drift"""
     
-    def __init__(self, _zpSub, _dftLen=0, _rdivs=[]):
+    def __init__(self, _zpSub, _dftLen=0, _xzdivs=[]):
+        """
+        :param _zpSub: SRWLOptZP (or derived) type object defining the element connecting with a drift space
+        :param _dftLen: Length [m]
+        :param _xzdivs: list type; cell divide parameters and propagation parameters for each cell.
+        """
         self.zpSub = _zpSub
         self.dftLen = _dftLen
-        self.rdivs = [tuple(x) for x in _rdivs]
-
+        self.xzdivs = [list(x) for x in _xzdivs]
         
-
 class SRWLOptWG(SRWLOpt):
     """Optical Element: Waveguide"""
     

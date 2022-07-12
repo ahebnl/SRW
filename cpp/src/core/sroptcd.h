@@ -22,21 +22,23 @@
 class srTConnectDrift : public srTZonePlate {
 	double dftLen;
 	int nxdiv, nzdiv;
-	double rdivs[32]; // 16 layers
+	double xdivs[32], zdivs[32]; // maximum 32 divides in each dimension
+	double crsz[5 * 32 * 32]; // each cell has (method, px_range, px_density, pz_range, pz_density)
 
 public:
-	srTConnectDrift(srTStringVect* pElemInfo) : srTZonePlate(pElemInfo) {}
+	srTConnectDrift(srTStringVect* pElemInfo) {}
 	srTConnectDrift(int _nZones, double _rn, double _thick, double _atLen1, double _atLen2, double _delta1, double _delta2, double _x = 0, double _y = 0, double _e0 = 0, double _dftLen = 0,
-		int _nxdiv = 0, int _nzdiv = 0, double *_rdivs = nullptr)
+		int _nxdiv = 0, double *_xdivs = nullptr, int _nzdiv = 0, double *_zdivs = nullptr, double *_crsz=nullptr)
 		:srTZonePlate(_nZones, _rn, _thick, _atLen1, _atLen2, _delta1, _delta2, _x, _y, _e0) {
 		dftLen = _dftLen;
 		nxdiv = _nxdiv;
+		memcpy(xdivs, _xdivs, nxdiv * sizeof (double));
 		nzdiv = _nzdiv;
-		for (int i = 0; i < 32; ++i) rdivs[i] = _rdivs[i];
+		memcpy(zdivs, _zdivs, nzdiv * sizeof(double));
+		memcpy(crsz, _crsz, nxdiv * nzdiv * 5 * sizeof(double));
 	}
 
 	int PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect);
-	int PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect);
 
 	int test_kick(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect);
 
@@ -50,7 +52,7 @@ private:
 
 	double maxpd() const;
 	//void resize_dest_rad(srTSRWRadStructAccessData& rad); // const;
-	void init_dest_rad(srTSRWRadStructAccessData& rad, vector<int>& xidxdiv, vector<int>& zidxdiv) const;
+	void init_dest_rad(srTSRWRadStructAccessData& rad, const srTSRWRadStructAccessData* pRadAccessData) const;
 };
 
 // select subsection, accumulate and pad a srTSRWRadStructAccessData

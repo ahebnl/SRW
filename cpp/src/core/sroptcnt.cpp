@@ -147,8 +147,8 @@ srTCompositeOptElem::srTCompositeOptElem(const SRWLOptC& opt)
 			else if ((strcmp(sType, "cd") == 0) || (strcmp(sType, "CD") == 0))
 			{
 				SRWLOptCD* p = (SRWLOptCD*)(*t_arOpt);
-				pOptElem = new srTConnectDrift(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y, p->e0, p->dftLen, p->nxdiv, p->nzdiv, p->rdivs); //OC22062019
-				//pOptElem = new srTZonePlate(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y);
+				pOptElem = new srTConnectDrift(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y, p->e0, p->dftLen,
+					p->nxdiv, p->xdivs, p->nzdiv, p->zdivs, p->crsz); 
 			}
 			else if(strcmp(sType, "waveguide") == 0)
 			{
