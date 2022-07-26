@@ -309,7 +309,15 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 #if DEBUG_ZPD > 1
 	cout << "zp input hash= " << std::hex << pRadAccessData->hashcode() << endl;
 #endif
+	bool shift_then_kick = true;
+	if (nxdiv <= 2 && nzdiv <= 2 && crsz[0] == 5) { // 2x2 and method==5
+		shift_then_kick = false;
+	}
 
+	if (crsz[0] == 5 && (nxdiv != 2 || nzdiv != 2)) {
+		cerr << "mode==5 but given grid not 2x2: " << nzdiv << "x" << nxdiv << endl;
+		return -1;
+	}
 	double xStep = pRadAccessData->xStep;
 	double xStart = pRadAccessData->xStart;
 	double zStep = pRadAccessData->zStep;
@@ -373,7 +381,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 	const long long RADSZ2 = destRad.nz * destRad.nx * destRad.ne * 2;
 	//memset(destRad.pBaseRadX, 0, RADSZ2 * sizeof destRad.pBaseRadX[0]);
 	//memset(destRad.pBaseRadZ, 0, RADSZ2 * sizeof destRad.pBaseRadZ[0]);
-	fprintf(stderr, "dest dim (%d %d) RADSZ2= %d\n", destRad.nz, destRad.nx, RADSZ2);
+	fprintf(stderr, "dest dim (%d %d) RADSZ2= %d shift_then_kick=%d\n", destRad.nz, destRad.nx, RADSZ2, shift_then_kick);
 
 	fprintf(stderr, "z in %d [%g %g] step= %g\n", pRadAccessData->nz,
 		pRadAccessData->zStart, pRadAccessData->zStart + pRadAccessData->zStep * (pRadAccessData->nz - 1),
@@ -423,8 +431,22 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 				else if (ix == 2*SZX) sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, 1, 1, 1750, 1750);
 				else sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, 1, 1, 1, 1);
 			}*/
-			sel_sub_cell(&newRad, *pRadAccessData, iz0, iz1, ix0, ix1, 0, 0, 0, 0);
+			int xlpad = 0, xrpad = 0, zlpad = 0, zrpad = 0;
+			if (!shift_then_kick) { // make sure (0.0, 0.0) is in this selection
+				xlpad = max(10, (pRadAccessData->xStart + ix0 * pRadAccessData->xStep) / pRadAccessData->xStep + 8);
+				zlpad = max(10, (pRadAccessData->zStart + iz0 * pRadAccessData->zStep) / pRadAccessData->zStep + 8);
+				xrpad = max(10, -(pRadAccessData->xStart + (ix1-1) * pRadAccessData->xStep) / pRadAccessData->xStep + 8);
+				zrpad = max(10, -(pRadAccessData->zStart + (iz1-1) * pRadAccessData->zStep) / pRadAccessData->zStep + 8);
+				fprintf(stderr, "padding with z %d %d x %d %d\n", zlpad, zrpad, xlpad, xrpad);
+			}
+			sel_sub_cell(&newRad, *pRadAccessData, iz0, iz1, ix0, ix1, zlpad, zrpad, xlpad, xrpad);
 
+			if (!shift_then_kick) {// make sure (0.0, 0.0) is in this selection
+				assert(newRad.xStart < 0.0);
+				assert(newRad.xStart + (newRad.nx - 1) * newRad.xStep > 0.0);
+				assert(newRad.zStart < 0.0);
+				assert(newRad.zStart + (newRad.nz - 1) * newRad.zStep > 0.0);
+			}
 			/*
 			if (nzdiv == 1 && nxdiv == 1) {
 				newRad.xc = pRadAccessData->xc; // for hash calc
@@ -441,10 +463,10 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 #endif
 
 			double xc = newRad.xStart + newRad.xStep * (newRad.nx-1) / 2.0;
-			if (nxdiv > 1) newRad.xStart -= xc;
+			if (shift_then_kick && nxdiv > 1) newRad.xStart -= xc;
 			double ang_x = -atan(xc / dftLen);
 			double zc = newRad.zStart + newRad.zStep * (newRad.nz-1) / 2.0;
-			if (nzdiv > 1) newRad.zStart -= zc;
+			if (shift_then_kick && nzdiv > 1) newRad.zStart -= zc;
 			double ang_z = -atan(zc / dftLen);
 
 			srTRadResize resz;
@@ -495,8 +517,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 				return result;
 			}
 			
-
-			if (dftLen > 0 && (nzdiv > 1 || nxdiv > 1)) {
+			if (shift_then_kick && dftLen > 0 && (nzdiv > 1 || nxdiv > 1)) {
 				srTOptAngle inter_angle(ang_x, ang_z);
 				fprintf(stderr, "adjust angle %f %f\n", ang_x, ang_z);
 				if (int result = inter_angle.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
@@ -751,58 +772,16 @@ double sub_ring_stepsize(double stepsz, double pdcenter, double pdedge, int numr
 
 int srTConnectDrift::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
 {
+	assert(nzdiv > 0 && nxdiv > 0);
+	/*if (crsz[0] == 5) { // method = 2x2 each has padding to include (0.0, 0.0)
+		return PropagateRad22(pRadAccessData, ParPrecWfrPropag, ResBeforeAndAfterVect);
+		assert(nxdiv == 2 && nzdiv == 2);
+		nzdiv = nxdiv = 2; // it has to be 2x2, special case
+	}
+	*/
+
 	return PropagateRad1(pRadAccessData, ParPrecWfrPropag, ResBeforeAndAfterVect);
 	// return test_kick(pRadAccessData, ParPrecWfrPropag, ResBeforeAndAfterVect);
 }
 
 
-int srTConnectDrift::test_kick(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
-{
-	cout << "[WARNING!!] The ZP (nzdiv=" << nzdiv << ",nxdiv=" << nxdiv
-		<< ") with aperture and drift L= " << dftLen << endl;
-#if DEBUG_ZPD > 1
-	// cout << "zp input hash=" << std::hex << pRadAccessData->hashcode() << endl;
-#endif
-	srTSRWRadStructAccessData newRad0(pRadAccessData), newRad1(pRadAccessData);
-	const long long SZ = pRadAccessData->nx * pRadAccessData->nz * pRadAccessData->ne * 2;
-	for (int i = 0; i < SZ; ++i) {
-		newRad0.pBaseRadX[i] /= 2.0; newRad0.pBaseRadZ[i] /= 2.0;
-		newRad1.pBaseRadX[i] /= 2.0; newRad1.pBaseRadZ[i] /= 2.0;
-	}
-
-	
-	srTDriftSpace internal_drift(dftLen);
-
-	//fprintf(stderr, "ref inp hash= 0x%016zx\n", newRad0.hashcode());
-	srTZonePlate::PropagateRadiation(&newRad0, ParPrecWfrPropag, ResBeforeAndAfterVect);
-	//fprintf(stderr, "ref zp  hash= 0x%016zx\n", newRad0.hashcode());
-	internal_drift.PropagateRadiation(&newRad0, ParPrecWfrPropag, ResBeforeAndAfterVect);
-	//fprintf(stderr, "ref drf hash= 0x%016zx\n", newRad0.hashcode());
-	newRad0.dumpBinData("junk.zpd.kick0.bin", "zpd_reference");
-
-	double xc = newRad1.xStart / 4.0, zc = newRad1.zStart / 4.0;
-	newRad1.xStart -= xc;
-	newRad1.zStart -= zc;
-
-	srTZonePlate::PropagateRadiation(&newRad1, ParPrecWfrPropag, ResBeforeAndAfterVect);
-	//fprintf(stderr, "ref zp  hash= 0x%016zx\n", newRad0.hashcode());
-	internal_drift.PropagateRadiation(&newRad1, ParPrecWfrPropag, ResBeforeAndAfterVect);
-	
-	double ang_x = -atan(xc / dftLen);
-	double ang_z = -atan(zc / dftLen);
-	srTOptAngle inter_angle(ang_x, ang_z);
-	if (int result = inter_angle.PropagateRadiation(&newRad1, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
-		fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
-		return result;
-	}
-	newRad1.dumpBinData("junk.zpd.kick1.bin", "zpd_reference");
-
-	newRad1.xStart += xc;
-	newRad1.zStart += zc;
-	accumulate_rad(newRad1.pBaseRadX, newRad1.pBaseRadZ, newRad1.nz, newRad1.nx,
-		newRad1.xStart, newRad1.xStep, newRad1.zStart, newRad1.zStep, newRad0);
-
-	newRad1.dumpBinData("junk.zpd.kick.tot.bin", "zpd_reference");
-
-	return 0;
-}

@@ -2868,6 +2868,9 @@ class SRWLOptCD(SRWLOpt):
         self.zpSub = _zpSub
         self.dftLen = _dftLen
         self.xzdivs = [list(x) for x in _xzdivs]
+        self.xzdivs[0].append(1.0) # the user won't need to input the boundary 1.0 (per Oleg request)
+        self.xzdivs[1].append(1.0) # the user won't need to input the boundary 1.0 (per Oleg request)
+
         
 class SRWLOptWG(SRWLOpt):
     """Optical Element: Waveguide"""
