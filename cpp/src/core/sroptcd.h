@@ -15,6 +15,7 @@
 #define __SROPTZPD_H
 
 #include "sroptelm.h"
+#include "sroptshp.h"
 #include <utility>
 #include <cassert>
 
@@ -26,11 +27,11 @@ class srTConnectDrift : public srTGenOptElem {
 	double xdivs[32], zdivs[32]; // maximum 32 divides in each dimension
 	double crsz[5 * 32 * 32]; // each cell has (method, px_range, px_density, pz_range, pz_density)
 
-	srTGenOptElem* elem;
+	srTShapedOptElem* elem;
 
 public:
 	srTConnectDrift(srTStringVect* pElemInfo) {}
-	srTConnectDrift(srTGenOptElem* _elem, double _dftLen = 0,
+	srTConnectDrift(srTShapedOptElem* _elem, double _dftLen = 0,
 		int _nxdiv = 0, double *_xdivs = nullptr,
 		int _nzdiv = 0, double *_zdivs = nullptr, double *_crsz=nullptr) {
 		elem = _elem;

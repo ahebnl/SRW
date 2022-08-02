@@ -101,6 +101,7 @@ srTCompositeOptElem::srTCompositeOptElem(const SRWLOptC& opt)
 		if(i < opt.nElem)
 		{
 			if((*t_arOpt) == 0) throw UNKNOWN_OPTICAL_ELEMENT;
+			fprintf(stderr, "%d %s\n", GenOptElemList.size(), *t_arOptTypes);
 			char *sType = *t_arOptTypes;
 			if(strcmp(sType, "drift") == 0)
 			{
@@ -146,7 +147,7 @@ srTCompositeOptElem::srTCompositeOptElem(const SRWLOptC& opt)
 			}
 			else if ((strcmp(sType, "cd") == 0) || (strcmp(sType, "CD") == 0))
 			{
-				srTGenOptElem* zp = nullptr;
+				srTShapedOptElem* zp = nullptr;
 				SRWLOptCD* p = (SRWLOptCD*)(*t_arOpt);
 				if (strcmp(p->zpSubName, "SRWLOptZP") == 0) {
 					const SRWLOptZP* psub = (SRWLOptZP*) (p->zpSub);

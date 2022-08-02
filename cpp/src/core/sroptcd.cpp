@@ -156,7 +156,7 @@ void copy_sub_cell(float* pdst, const float* psrc, int nz, int nx, int ne, int i
 }
 
 // psrc - full (nz, nx, ne) 3D array, e has Ex, Ez
-// pdst - destination, is a bigger grid nz1, nx1, ne1, place the src "cubic" inside dst and starts from (jz, jx, je)
+// pdst - destination, is a bigger grid nz1, nx1, ne1==ne, place the src "cubic" inside dst and starts from (jz, jx, je)
 // in this way, pdst has padding 
 void copy_sub_cell_gen(float* pdst, int nz1, int nx1, int jz, int jx,
 	const float* psrc, int nz, int nx, int ne, int iz0, int iz1, int ix0, int ix1)
@@ -222,8 +222,10 @@ void sel_sub_cell(srTSRWRadStructAccessData * dst, /* const */ srTSRWRadStructAc
 
 	long nz0 = iz1 - iz0;
 	long nx0 = ix1 - ix0;
-	int jz = npadz0 > 0 ? npadz0 : dst->nz - nz0 - max(0, npadz1); // actual padding
-	int jx = npadx0 > 0 ? npadx0 : dst->nx - nx0 - max(0, npadx1); // actual padding
+	// int jz = npadz0 > 0 ? npadz0 : dst->nz - nz0 - max(0, npadz1); // actual left padding
+	// int jx = npadx0 > 0 ? npadx0 : dst->nx - nx0 - max(0, npadx1); // actual left padding
+	int jz = max(0, npadz0);
+	int jx = max(0, npadx0);
 	copy_sub_cell_gen(dst->pBaseRadX, dst->nz, dst->nx, jz, jx, wfr.pBaseRadX, wfr.nz, wfr.nx, wfr.ne, iz0, iz1, ix0, ix1);
 	copy_sub_cell_gen(dst->pBaseRadZ, dst->nz, dst->nx, jz, jx, wfr.pBaseRadZ, wfr.nz, wfr.nx, wfr.ne, iz0, iz1, ix0, ix1);
 
@@ -236,8 +238,8 @@ void sel_sub_cell(srTSRWRadStructAccessData * dst, /* const */ srTSRWRadStructAc
 	
 	dst->xWfrMin = dst->xStart;
 	dst->zWfrMin = dst->zStart;
-	dst->xWfrMax = dst->xStart + dst->nx * dst->xStep;
-	dst->zWfrMax = dst->zStart + dst->nz * dst->zStep;
+	dst->xWfrMax = dst->xStart + (dst->nx - 1) * dst->xStep;
+	dst->zWfrMax = dst->zStart + (dst->nz - 1) * dst->zStep;
 
 #if DEBUG_ZPD > 2
 	fprintf(stderr, "src hash= 0x%016zx\n", wfr.hashcode());
@@ -398,12 +400,16 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 	int zidxdiv[33] = { 0 }, xidxdiv[33] = { 0 };
 	for (int ix = 0; ix < nxdiv; ++ix) {
 		xidxdiv[ix + 1] = ceil(xdivs[ix] * pRadAccessData->nx);
+		fprintf(stderr, "%d ", xidxdiv[ix + 1]);
 	}
+	fprintf(stderr, "\n");
 	
 	for (int iz = 0; iz < nzdiv; ++iz) {
 		zidxdiv[iz + 1] = ceil(zdivs[iz] * pRadAccessData->nz);
+		fprintf(stderr, "%d ", zidxdiv[iz + 1]);
 	}
-	
+	fprintf(stderr, "\n");
+
 	for (int iz = 0; iz < nzdiv; ++iz) {
 		const int iz0 = zidxdiv[iz], iz1 = zidxdiv[iz + 1];
 
@@ -442,6 +448,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 				zlpad = max(10, (pRadAccessData->zStart + iz0 * pRadAccessData->zStep) / pRadAccessData->zStep + 8);
 				xrpad = max(10, -(pRadAccessData->xStart + (ix1-1) * pRadAccessData->xStep) / pRadAccessData->xStep + 8);
 				zrpad = max(10, -(pRadAccessData->zStart + (iz1-1) * pRadAccessData->zStep) / pRadAccessData->zStep + 8);
+				zlpad = zrpad = xlpad = xrpad = 0;
 				fprintf(stderr, "padding with z %d %d x %d %d\n", zlpad, zrpad, xlpad, xrpad);
 			}
 			sel_sub_cell(&newRad, *pRadAccessData, iz0, iz1, ix0, ix1, zlpad, zrpad, xlpad, xrpad);
@@ -467,26 +474,27 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			junkfdiv << "#fin " << iz << " " << ix << " z " << iz0 << " " << iz1 << " x " << ix0 << " " << ix1 << " " << fname << endl;
 #endif
 
-			double xc = newRad.xStart + newRad.xStep * (newRad.nx-1) / 2.0;
-			if (shift_then_kick && nxdiv > 1) newRad.xStart -= xc;
-			double ang_x = -atan(xc / dftLen);
-			double zc = newRad.zStart + newRad.zStep * (newRad.nz-1) / 2.0;
-			if (shift_then_kick && nzdiv > 1) newRad.zStart -= zc;
-			double ang_z = -atan(zc / dftLen);
+			// the real center
+			double xc = newRad.xStart + newRad.xStep * (newRad.nx - 1) / 2.0;
+			double zc = newRad.zStart + newRad.zStep * (newRad.nz - 1) / 2.0;
+			if (shift_then_kick && (nxdiv > 1 || nzdiv > 1)) {
+				newRad.xStart -= xc;
+				newRad.zStart -= zc;
+			}
 
 			srTRadResize resz;
 			
 			resz.pxm = pmx; resz.pzm = pmz;
 			resz.pxd = pdx; resz.pzd = pdz;
-			RadResizeGen(newRad, resz);
-			
-			
+			//RadResizeGen(newRad, resz);
 
 #if DEBUG_ZPD > 1
 			junkfdiv << "#pdizix " << iz << " " << ix << " pzd " << resz.pzd << " pxd " << resz.pxd << endl;
 #endif
 
 #if DEBUG_ZPD > 1
+			double ang_x = -atan(xc / dftLen);
+			double ang_z = -atan(zc / dftLen);
 			fprintf(stderr, "xc=%g zc=%g ang_x=%g ang_z=%g\n", xc, zc, ang_x, ang_z);
 			fprintf(stderr, "Slice iz=%d ix=%d z=[%g %g], x=[%g %g]\n",
 				iz, ix, newRad.zStart, newRad.zStart+newRad.nz*newRad.zStep, newRad.xStart, newRad.xStart + newRad.nx * newRad.xStep);
@@ -497,18 +505,21 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			
 			fprintf(stderr, "zpd01_%d_%d hash= 0x%016zx\n", iz, ix, newRad.hashcode());
 #endif
-//			if (nzdiv > 1 || nxdiv > 1) {
-//				srTOptAngle inter_angle(-ang_x, -ang_z);
-//				if (int result = inter_angle.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
-//					fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
-//					return result;
-//				}
-//			}
-			
-			if (int result = elem->PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
-				fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
-				return result;
+
+			if (shift_then_kick) {
+				double xc0 = elem->TransvCenPoint.x, zc0 = elem->TransvCenPoint.y;
+				elem->TransvCenPoint.x = -xc;
+				elem->TransvCenPoint.y = -zc;
+				
+				if (int result = elem->PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
+					fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
+					return result;
+				}
+
+				elem->TransvCenPoint.x = xc0;
+				elem->TransvCenPoint.y = zc0;
 			}
+			
 
 #if DEBUG_ZPD > 2
 			CDRadStructHelper::add(&radAfterZP, &newRad);
@@ -518,9 +529,19 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 
 			fprintf(stderr, "zpd zp  hash= 0x%016zx\n", newRad.hashcode());
 #endif
+			/*
+			if (shift_then_kick && dftLen > 0 && (nzdiv > 1 || nxdiv > 1)) {
+				srTOptAngle inter_angle(ang_x, ang_z);
+				fprintf(stderr, "adjust angle %f %f\n", ang_x, ang_z);
+				if (int result = inter_angle.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
+					fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
+					return result;
+				}
+			}
+			*/
 
 			int Ann = ParPrecWfrPropag.AnalTreatment;
-			ParPrecWfrPropag.AnalTreatment = 4;
+			// ParPrecWfrPropag.AnalTreatment = 4;
 			if (int result = internal_drift.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
 				fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
 				return result;
@@ -531,19 +552,17 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			fname = "junk.zpd03." + to_string(iz) + "_" + to_string(ix) + ".bin";
 			newRad.dumpBinData(fname, fname);
 #endif
-
-			if (shift_then_kick && dftLen > 0 && (nzdiv > 1 || nxdiv > 1)) {
-				srTOptAngle inter_angle(ang_x, ang_z);
-				fprintf(stderr, "adjust angle %f %f\n", ang_x, ang_z);
-				if (int result = inter_angle.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
-					fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
-					return result;
-				}
-			}
+			
 
 #if DEBUG_ZPD > 2
 			fprintf(stderr, "zpd dft  hash= 0x%016zx\n", newRad.hashcode());
 #endif
+			/*
+			if (shift_then_kick) {
+				newRad.xStart += xc;
+				newRad.zStart += zc;
+			}
+			*/
 
 #if DEBUG_ZPD > 1
 			{
