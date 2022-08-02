@@ -365,8 +365,9 @@ typedef struct SRWLStructOpticsZonePlate SRWLOptZP;
  * Connect Drift ("cd" type)
  */
 
-struct SRWLStructOpticsConnectDrift: public SRWLStructOpticsZonePlate {
-	SRWLStructOpticsZonePlate* zpSub;
+struct SRWLStructOpticsConnectDrift { // : public SRWLStructOpticsZonePlate {
+	char zpSubName[32];
+	void* zpSub; // SRWLStructOpticsZonePlate
 	double dftLen; /* length [m]*/
 	int nxdiv, nzdiv;
 	double xdivs[32], zdivs[32]; // divided ratio along horizontal (xdivs) and vertical (zdivs) direction

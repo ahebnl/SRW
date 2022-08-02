@@ -299,7 +299,7 @@ void srTConnectDrift::init_dest_rad(srTSRWRadStructAccessData& rad, const srTSRW
 	memset(rad.pBaseRadX, 0, sz * sizeof rad.pBaseRadX[0]);
 	memset(rad.pBaseRadZ, 0, sz * sizeof rad.pBaseRadZ[0]);
 	fprintf(stderr, "the dest will have step x %e z %e, start x %e z %e, width nx %d nz %d\n",
-		rad.xStep, rad.xStart, rad.zStep, rad.zStart, rad.nx, rad.nz);
+		rad.xStep, rad.zStep, rad.xStart, rad.zStart, rad.nx, rad.nz);
 }
 
 int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
@@ -318,6 +318,9 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 		cerr << "mode==5 but given grid not 2x2: " << nzdiv << "x" << nxdiv << endl;
 		return -1;
 	}
+	
+	int MethNo = ParPrecWfrPropag.MethNo;
+
 	double xStep = pRadAccessData->xStep;
 	double xStart = pRadAccessData->xStart;
 	double zStep = pRadAccessData->zStep;
@@ -330,11 +333,13 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 #if DEBUG_ZPD > 0
 	srTSRWRadStructAccessData newRad0(pRadAccessData);
 	//fprintf(stderr, "ref inp hash= 0x%016zx\n", newRad0.hashcode());
-	srTZonePlate::PropagateRadiation(&newRad0, ParPrecWfrPropag, ResBeforeAndAfterVect);
+	elem->PropagateRadiation(&newRad0, ParPrecWfrPropag, ResBeforeAndAfterVect);
 	//fprintf(stderr, "ref zp  hash= 0x%016zx\n", newRad0.hashcode());
+	ParPrecWfrPropag.MethNo = crsz[0];
 	internal_drift.PropagateRadiation(&newRad0, ParPrecWfrPropag, ResBeforeAndAfterVect);
 	//fprintf(stderr, "ref drf hash= 0x%016zx\n", newRad0.hashcode()); 
-	
+	ParPrecWfrPropag.MethNo = MethNo;
+
 	newRad0.dumpBinData("junk.zpd.ref.bin", "zpd_reference");
 	fprintf(stderr, "dumpped reference output of ZPD\n");
 #endif
@@ -475,6 +480,8 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			resz.pxd = pdx; resz.pzd = pdz;
 			RadResizeGen(newRad, resz);
 			
+			
+
 #if DEBUG_ZPD > 1
 			junkfdiv << "#pdizix " << iz << " " << ix << " pzd " << resz.pzd << " pxd " << resz.pxd << endl;
 #endif
@@ -498,7 +505,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 //				}
 //			}
 			
-			if (int result = srTZonePlate::PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
+			if (int result = elem->PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
 				fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
 				return result;
 			}
@@ -512,11 +519,19 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			fprintf(stderr, "zpd zp  hash= 0x%016zx\n", newRad.hashcode());
 #endif
 
+			int Ann = ParPrecWfrPropag.AnalTreatment;
+			ParPrecWfrPropag.AnalTreatment = 4;
 			if (int result = internal_drift.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
 				fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
 				return result;
 			}
+			ParPrecWfrPropag.AnalTreatment = Ann; // restore
 			
+#if DEBUG_ZPD > 2
+			fname = "junk.zpd03." + to_string(iz) + "_" + to_string(ix) + ".bin";
+			newRad.dumpBinData(fname, fname);
+#endif
+
 			if (shift_then_kick && dftLen > 0 && (nzdiv > 1 || nxdiv > 1)) {
 				srTOptAngle inter_angle(ang_x, ang_z);
 				fprintf(stderr, "adjust angle %f %f\n", ang_x, ang_z);
@@ -530,9 +545,6 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			fprintf(stderr, "zpd dft  hash= 0x%016zx\n", newRad.hashcode());
 #endif
 
-			// accumulate_rad(destRad.pBaseRadX, destRad.pBaseRadZ, pRadAccessData->nz, pRadAccessData->nx, xStart, xStep, zStart, zStep, newRad);
-			CDRadStructHelper::add(&destRad, &newRad);
-			
 #if DEBUG_ZPD > 1
 			{
 				fname = "junk.zpd1." + to_string(iz) + "_" + to_string(ix) + ".bin";
@@ -545,6 +557,10 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 				fprintf(stderr, "Slice (iz, ix) = %d %d Hash= 0x%016zx, Hash= 0x%016zx\n", iz, ix, pRadAccessData->hashcode(), newRad.hashcode());
 			}
 #endif
+
+			// accumulate_rad(destRad.pBaseRadX, destRad.pBaseRadZ, pRadAccessData->nz, pRadAccessData->nx, xStart, xStep, zStart, zStep, newRad);
+			CDRadStructHelper::add(&destRad, &newRad);
+
 
 #if DEBUG_ZPD > 2
 			{

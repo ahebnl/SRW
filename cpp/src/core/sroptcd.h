@@ -14,22 +14,27 @@
 #ifndef __SROPTZPD_H
 #define __SROPTZPD_H
 
-#include "sroptzp.h"
+#include "sroptelm.h"
 #include <utility>
+#include <cassert>
 
 //*************************************************************************
 
-class srTConnectDrift : public srTZonePlate {
+class srTConnectDrift : public srTGenOptElem {
 	double dftLen;
 	int nxdiv, nzdiv;
 	double xdivs[32], zdivs[32]; // maximum 32 divides in each dimension
 	double crsz[5 * 32 * 32]; // each cell has (method, px_range, px_density, pz_range, pz_density)
 
+	srTGenOptElem* elem;
+
 public:
 	srTConnectDrift(srTStringVect* pElemInfo) {}
-	srTConnectDrift(int _nZones, double _rn, double _thick, double _atLen1, double _atLen2, double _delta1, double _delta2, double _x = 0, double _y = 0, double _e0 = 0, double _dftLen = 0,
-		int _nxdiv = 0, double *_xdivs = nullptr, int _nzdiv = 0, double *_zdivs = nullptr, double *_crsz=nullptr)
-		:srTZonePlate(_nZones, _rn, _thick, _atLen1, _atLen2, _delta1, _delta2, _x, _y, _e0) {
+	srTConnectDrift(srTGenOptElem* _elem, double _dftLen = 0,
+		int _nxdiv = 0, double *_xdivs = nullptr,
+		int _nzdiv = 0, double *_zdivs = nullptr, double *_crsz=nullptr) {
+		elem = _elem;
+		assert(elem);
 		dftLen = _dftLen;
 		nxdiv = _nxdiv;
 		memcpy(xdivs, _xdivs, nxdiv * sizeof (double));

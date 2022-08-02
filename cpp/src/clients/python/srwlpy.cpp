@@ -1784,8 +1784,20 @@ void ParseSructSRWLOptCD(SRWLOptCD* pOpt, PyObject* oOpt) //throw(...)
 {
 	// ParseSructSRWLOptZP(pOpt, oOpt);
 	PyObject* o_tmp = PyObject_GetAttrString(oOpt, "zpSub");
+	fprintf(stderr, "zpSub Type= %s\n", o_tmp->ob_type->tp_name);
 	if (o_tmp == 0) throw strEr_BadOptCD;
-	ParseSructSRWLOptZP(pOpt, o_tmp);
+	if (strcmp(o_tmp->ob_type->tp_name, "SRWLOptZP") == 0) {
+		pOpt->zpSub = (void*)new SRWLOptZP();
+		ParseSructSRWLOptZP((SRWLOptZP*)pOpt->zpSub, o_tmp);
+	}
+	else if (strcmp(o_tmp->ob_type->tp_name, "SRWLOptL") == 0) {
+		pOpt->zpSub = (void*)new SRWLOptL();
+		ParseSructSRWLOptL((SRWLOptL*) pOpt->zpSub, o_tmp);
+	} else {
+		fprintf(stderr, "SRWLOptCD has invalid zpSub Type= %s\n", o_tmp->ob_type->tp_name);
+		throw strEr_BadOptCD;
+	}
+	strncpy(pOpt->zpSubName, o_tmp->ob_type->tp_name, 31);
 	Py_DECREF(o_tmp);
 
 	o_tmp = PyObject_GetAttrString(oOpt, "dftLen");
