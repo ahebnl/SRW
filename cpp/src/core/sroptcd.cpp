@@ -63,13 +63,14 @@ void do_efield_2d_sample(float *peout, double z, double x, float *pe, int ne, in
 	}
 }
 
-void accumulate_rad(float* rdestx, float *rdestz, int nz, int nx, double x0, double dx, double z0, double dz, const srTSRWRadStructAccessData& r /*, const string& component */,
+void accumulate_rad(float* rdestx0, float *rdestz0, int nx, int nz, double x0, double dx, double z0, double dz, const srTSRWRadStructAccessData& r /*, const string& component */,
 	double zshift = 0.0, double xshift = 0.0)
 {
 	// float* psrc = nullptr;
 	// if (component == "X") psrc = r.pBaseRadX;
 	// for each point (z, x) rdest, we sample a result from srTSRWRadStructAccessData r and accumulate
 	// we are sampling (z+zshift, x+xshift) at r
+	float *rdestx = rdestx0, *rdestz = rdestz0;
 	for (int iz = 0; iz < nz; ++iz) {
 		double z = z0 + iz * dz;
 		for (int ix = 0; ix < nx; ++ix) {
@@ -85,7 +86,7 @@ void accumulate_rad(float* rdestx, float *rdestz, int nz, int nx, double x0, dou
 
 void CDRadStructHelper::add(srTSRWRadStructAccessData* dest, const srTSRWRadStructAccessData* src)
 {
-	accumulate_rad(dest->pBaseRadX, dest->pBaseRadZ, dest->nz, dest->nx, dest->xStart, dest->xStep, dest->zStart, dest->zStep, *src);
+	accumulate_rad(dest->pBaseRadX, dest->pBaseRadZ, dest->nx, dest->nz, dest->xStart, dest->xStep, dest->zStart, dest->zStep, *src);
 }
 
 // dest will keep its mem size (nz, nx, ne), but new xStart, xStep
@@ -101,7 +102,7 @@ void CDRadStructHelper::assign(srTSRWRadStructAccessData* dest, const srTSRWRadS
 	memset(dest->pBaseRadX, 0, SZ * sizeof dest->pBaseRadX[0]);
 	memset(dest->pBaseRadZ, 0, SZ * sizeof dest->pBaseRadZ[0]);
 
-	accumulate_rad(dest->pBaseRadX, dest->pBaseRadZ, dest->nz, dest->nx, dest->xStart, dest->xStep, dest->zStart, dest->zStep, *src);
+	accumulate_rad(dest->pBaseRadX, dest->pBaseRadZ, dest->nx, dest->nz, dest->xStart, dest->xStep, dest->zStart, dest->zStep, *src);
 }
 
 void select_cell(srTSRWRadStructAccessData& wfr, double z0, double z1, double x0, double x1)
@@ -202,7 +203,9 @@ void copy_sub_cell_gen(float* pdst, int nz1, int nx1, int jz, int jx,
 #if DEBUG_ZPD > 2
 	{
 		const auto itm = std::minmax_element(pdst, pdst + nz1 * nx1 * ne * 2);
-		fprintf(stderr, "dst N (%d,%d,%d) %ld min= %g max %g\n", iz1 - iz0, ix1 - ix0, ne, DZDST * (iz1 - iz0+jz), *itm.first, *itm.second);
+		fprintf(stderr, "dst N (%d,%d,%d) srcnz= %d, srcnx=%d min= %g max %g\n", nz1, nx1, ne, iz1 - iz0, ix1 - ix0, *itm.first, *itm.second);
+		assert(nz1 == next_fft_num(nz1));
+		assert(nx1 == next_fft_num(nx1));
 	}
 #endif
 }
@@ -243,7 +246,7 @@ void sel_sub_cell(srTSRWRadStructAccessData * dst, /* const */ srTSRWRadStructAc
 
 #if DEBUG_ZPD > 2
 	fprintf(stderr, "src hash= 0x%016zx\n", wfr.hashcode());
-	fprintf(stderr, "dst hash= 0x%016zx\n", dst->hashcode());
+	fprintf(stderr, "dst hash= 0x%016zx nx= %d nz= %d\n", dst->hashcode(), dst->nx, dst->nz);
 #endif
 
 	// dst->ComputeRadMoments();
@@ -291,7 +294,7 @@ void srTConnectDrift::init_dest_rad(srTSRWRadStructAccessData& rad, const srTSRW
 
 	rad.nx = wx * pinrad->xStep * (pinrad->nx - 1) / rad.xStep + 1;
 	rad.nz = wz * pinrad->zStep * (pinrad->nz - 1) / rad.zStep + 1;
-	
+
 	rad.xStart = -rad.xStep * (rad.nx - 1) / 2.0;
 	rad.zStart = -rad.zStep * (rad.nz - 1) / 2.0;
 
@@ -300,8 +303,11 @@ void srTConnectDrift::init_dest_rad(srTSRWRadStructAccessData& rad, const srTSRW
 	long long sz = rad.nx * rad.nz * rad.ne * 2;
 	memset(rad.pBaseRadX, 0, sz * sizeof rad.pBaseRadX[0]);
 	memset(rad.pBaseRadZ, 0, sz * sizeof rad.pBaseRadZ[0]);
-	fprintf(stderr, "the dest will have step x %e z %e, start x %e z %e, width nx %d nz %d\n",
-		rad.xStep, rad.zStep, rad.xStart, rad.zStart, rad.nx, rad.nz);
+	double xEnd = rad.xStart + rad.xStep * (rad.nx - 1);
+	double zEnd = rad.zStart + rad.zStep * (rad.nz - 1);
+	fprintf(stderr, "the dest will have\n  step x %e z %e,\n  start x %e %e z %e %e,\n  width nx %d nz %d\n  "
+		"fac wx= %g wz= %g xStep= %g zStep= %g\n",
+		rad.xStep, rad.zStep, rad.xStart, xEnd, rad.zStart, zEnd, rad.nx, rad.nz, wx, wz, xStep, zStep);
 }
 
 int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
@@ -332,7 +338,9 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 	srTDriftSpace internal_drift(dftLen);
 	assert(dftLen > 0); // NOTE: the shift, then kick (as a inverse of shift) depends on dftLen
 						// a dftLen==0 will make this inverse impossible
+
 #if DEBUG_ZPD > 0
+	fprintf(stderr, "input xStep= %g zStep= %g\n", pRadAccessData->xStep, pRadAccessData->zStep);
 	srTSRWRadStructAccessData newRad0(pRadAccessData);
 	//fprintf(stderr, "ref inp hash= 0x%016zx\n", newRad0.hashcode());
 	elem->PropagateRadiation(&newRad0, ParPrecWfrPropag, ResBeforeAndAfterVect);
@@ -343,7 +351,8 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 	ParPrecWfrPropag.MethNo = MethNo;
 
 	newRad0.dumpBinData("junk.zpd.ref.bin", "zpd_reference");
-	fprintf(stderr, "dumpped reference output of ZPD\n");
+	fprintf(stderr, "dumpped reference output of ZPD nz,nx,ne=(%d,%d,%d) zStep= %g xStep= %g\n",
+		newRad0.nz, newRad0.nx, newRad0.ne, newRad0.zStep, newRad0.xStep);
 #endif
 
 #if DEBUG_ZPD > 1
@@ -400,7 +409,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 	int zidxdiv[33] = { 0 }, xidxdiv[33] = { 0 };
 	for (int ix = 0; ix < nxdiv; ++ix) {
 		xidxdiv[ix + 1] = ceil(xdivs[ix] * pRadAccessData->nx);
-		fprintf(stderr, "%d ", xidxdiv[ix + 1]);
+		fprintf(stderr, "%d (f=%.4f) ", xidxdiv[ix + 1], xdivs[ix]);
 	}
 	fprintf(stderr, "\n");
 	
@@ -448,7 +457,6 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 				zlpad = max(10, (pRadAccessData->zStart + iz0 * pRadAccessData->zStep) / pRadAccessData->zStep + 8);
 				xrpad = max(10, -(pRadAccessData->xStart + (ix1-1) * pRadAccessData->xStep) / pRadAccessData->xStep + 8);
 				zrpad = max(10, -(pRadAccessData->zStart + (iz1-1) * pRadAccessData->zStep) / pRadAccessData->zStep + 8);
-				zlpad = zrpad = xlpad = xrpad = 0;
 				fprintf(stderr, "padding with z %d %d x %d %d\n", zlpad, zrpad, xlpad, xrpad);
 			}
 			sel_sub_cell(&newRad, *pRadAccessData, iz0, iz1, ix0, ix1, zlpad, zrpad, xlpad, xrpad);
@@ -459,14 +467,6 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 				assert(newRad.zStart < 0.0);
 				assert(newRad.zStart + (newRad.nz - 1) * newRad.zStep > 0.0);
 			}
-			/*
-			if (nzdiv == 1 && nxdiv == 1) {
-				newRad.xc = pRadAccessData->xc; // for hash calc
-				newRad.zc = pRadAccessData->zc;
-				cerr << "hash= " << std::hex << pRadAccessData->hashcode() << endl;
-				cerr << "hash= " << std::hex << newRad.hashcode() << std::dec << " (iz= " << iz << "/" << nzdiv << ", ix= " << ix << "/" << nxdiv << ")\n";
-			}
-			*/
 
 #if DEBUG_ZPD > 1
 			fname = "junk.zpd00." + to_string(iz) + "_" + to_string(ix) + ".bin";
@@ -486,7 +486,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			
 			resz.pxm = pmx; resz.pzm = pmz;
 			resz.pxd = pdx; resz.pzd = pdz;
-			//RadResizeGen(newRad, resz);
+			RadResizeGen(newRad, resz);
 
 #if DEBUG_ZPD > 1
 			junkfdiv << "#pdizix " << iz << " " << ix << " pzd " << resz.pzd << " pxd " << resz.pxd << endl;
@@ -496,8 +496,9 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			double ang_x = -atan(xc / dftLen);
 			double ang_z = -atan(zc / dftLen);
 			fprintf(stderr, "xc=%g zc=%g ang_x=%g ang_z=%g\n", xc, zc, ang_x, ang_z);
-			fprintf(stderr, "Slice iz=%d ix=%d z=[%g %g], x=[%g %g]\n",
-				iz, ix, newRad.zStart, newRad.zStart+newRad.nz*newRad.zStep, newRad.xStart, newRad.xStart + newRad.nx * newRad.xStep);
+			fprintf(stderr, "Slice iz=%d ix=%d z=[%g %g], x=[%g %g] nz= %d nx= %d\n",
+				iz, ix, newRad.zStart, newRad.zStart+newRad.nz*newRad.zStep, newRad.xStart, newRad.xStart + newRad.nx * newRad.xStep,
+				newRad.nz, newRad.nx);
 
 			fname = "junk.zpd01." + to_string(iz) + "_" + to_string(ix) + ".bin";
 			newRad.dumpBinData(fname, fname);
@@ -522,7 +523,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			
 
 #if DEBUG_ZPD > 2
-			CDRadStructHelper::add(&radAfterZP, &newRad);
+			// CDRadStructHelper::add(&radAfterZP, &newRad);
 
 			fname = "junk.zpd02." + to_string(iz) + "_" + to_string(ix) + ".bin";
 			newRad.dumpBinData(fname, fname);
@@ -540,20 +541,29 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			}
 			*/
 
+			srTDriftSpace internal_drift(dftLen);
 			int Ann = ParPrecWfrPropag.AnalTreatment;
 			// ParPrecWfrPropag.AnalTreatment = 4;
 			if (int result = internal_drift.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
 				fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
 				return result;
 			}
-			ParPrecWfrPropag.AnalTreatment = Ann; // restore
+			//ParPrecWfrPropag.AnalTreatment = Ann; // restore
 			
 #if DEBUG_ZPD > 2
 			fname = "junk.zpd03." + to_string(iz) + "_" + to_string(ix) + ".bin";
 			newRad.dumpBinData(fname, fname);
 #endif
-			
-
+			/*
+			if (shift_then_kick && dftLen > 0 && (nzdiv > 1 || nxdiv > 1)) {
+				srTOptAngle inter_angle(ang_x, ang_z);
+				fprintf(stderr, "adjust angle %f %f\n", ang_x, ang_z);
+				if (int result = inter_angle.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
+					fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
+					return result;
+				}
+			}
+			*/
 #if DEBUG_ZPD > 2
 			fprintf(stderr, "zpd dft  hash= 0x%016zx\n", newRad.hashcode());
 #endif
@@ -566,6 +576,12 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 
 #if DEBUG_ZPD > 1
 			{
+				//srTRadResize resz;
+
+				//resz.pxm = 0.05; resz.pzm = 0.05;
+				//resz.pxd = 10; resz.pzd = 10;
+				//RadResizeGen(newRad, resz);
+
 				fname = "junk.zpd1." + to_string(iz) + "_" + to_string(ix) + ".bin";
 				newRad.dumpBinData(fname, fname);
 				junkfdiv << "#fout " << iz << " " << ix << " " << fname << endl;
@@ -577,7 +593,23 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			}
 #endif
 
-			// accumulate_rad(destRad.pBaseRadX, destRad.pBaseRadZ, pRadAccessData->nz, pRadAccessData->nx, xStart, xStep, zStart, zStep, newRad);
+			{
+				//debug
+				/*
+				int k = 0;
+				for (int i = 0; i < newRad.nz; ++i) {
+					for (int j = 0; j < newRad.nx * newRad.ne * 2; ++j, ++k) {
+						if (fabs(newRad.pBaseRadX[k]) > 1e6 || fabs(newRad.pBaseRadZ[k]) > 1e6)
+							fprintf(stderr, "(%d %d k=%d)  Ux= %g Uz= %g ", i, j, k, newRad.pBaseRadX[k], newRad.pBaseRadZ[k]);
+					}
+				}
+				fprintf(stderr, "\n");
+				*/
+			}
+
+			
+
+			// accumulate_rad(destRad.pBaseRadX, destRad.pBaseRadZ, pRadAccessData->nx, pRadAccessData->nz, xStart, xStep, zStart, zStep, newRad);
 			CDRadStructHelper::add(&destRad, &newRad);
 
 
