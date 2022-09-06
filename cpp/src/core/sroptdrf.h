@@ -91,6 +91,9 @@ public:
 	//OC06092019 (commented-out)
 	//srTDriftPropBufVars PropBufVars;
 
+	// the observation plane is shifted
+	double shift_obsx = 0.0, shift_obsz = 0.0;
+
 	srTDriftSpace(double InLength =0., char InTreatPath =0) 
 	{ 
 		Length = InLength;
@@ -587,6 +590,8 @@ public:
 			PhaseShift += (5.067730652e+06)*Length*EXZ.e;
 			//+= 6.2831853072*Length/Lambda_m;
 		}
+
+		PhaseShift += 2*3.1415926*(shift_obsx * EXZ.x + shift_obsz * EXZ.z);
 
 		float CosPh, SinPh;
 		CosAndSin(PhaseShift, CosPh, SinPh);

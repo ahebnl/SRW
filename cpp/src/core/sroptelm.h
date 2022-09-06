@@ -347,11 +347,11 @@ public:
 
 	//inline void MultSquareMatrByVect(float**, float*, int, float*);
 	inline void MultSquareMatrByVect(double**, double*, int, double*); //OC130311
-	inline void CosAndSin(double, float&, float&);
+	inline static void CosAndSin(double, float&, float&);
 	inline void FindLowestAndUppestPoints(TVector3d&, TVector3d*, int, int&, int&);
 	inline void ReflectVect(TVector3d& N, TVector3d& V);
 	inline void FindLineIntersectWithPlane(TVector3d* Plane, TVector3d* Line, TVector3d& IntersectP);
-	inline void TreatPhaseShift(srTEFieldPtrs& EPtrs, double PhShift);
+	inline static void TreatPhaseShift(srTEFieldPtrs& EPtrs, double PhShift);
 
 	inline long IntegerOffsetCoord(double xStart, double xStep, double xVal);
 	//void FindMinMaxRatio(float*, float*, int, float&, float&);
