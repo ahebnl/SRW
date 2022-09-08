@@ -501,7 +501,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 				else if (ix == 2*SZX) sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, 1, 1, 1750, 1750);
 				else sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, 1, 1, 1, 1);
 			}*/
-			int xlpad = 2, xrpad = 2, zlpad = 2, zrpad = 2;
+			int xlpad = 8, xrpad = 8, zlpad = 8, zrpad = 8;
 			if (!shift_then_kick) { // make sure (0.0, 0.0) is in this selection
 				xlpad = max(10, (pRadAccessData->xStart + ix0 * pRadAccessData->xStep) / pRadAccessData->xStep + 8);
 				zlpad = max(10, (pRadAccessData->zStart + iz0 * pRadAccessData->zStep) / pRadAccessData->zStep + 8);
@@ -556,8 +556,8 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			zc = newRad.zStart + 0.5 * newRad.zStep * (newRad.nz-1);
 			
 			if (shift_then_kick && (nxdiv > 1 || nzdiv > 1)) {
-				//newRad.xStart -= xc;
-				//newRad.zStart -= zc;
+				newRad.xStart -= xc;
+				newRad.zStart -= zc;
 			}
 
 			//double ang_x = atan(xc / dftLen);

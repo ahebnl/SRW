@@ -591,7 +591,8 @@ public:
 			//+= 6.2831853072*Length/Lambda_m;
 		}
 
-		PhaseShift += 2*3.1415926*(shift_obsx * EXZ.x + shift_obsz * EXZ.z);
+		// phase shift in freq domain, if observation plane is shifted
+		PhaseShift += 2*3.1415926*(shift_obsx * EXZ.x + shift_obsz * EXZ.z); // AH06092022
 
 		float CosPh, SinPh;
 		CosAndSin(PhaseShift, CosPh, SinPh);
