@@ -556,8 +556,8 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			zc = newRad.zStart + 0.5 * newRad.zStep * (newRad.nz-1);
 			
 			if (shift_then_kick && (nxdiv > 1 || nzdiv > 1)) {
-				newRad.xStart -= xc;
-				newRad.zStart -= zc;
+				//newRad.xStart -= xc;
+				//newRad.zStart -= zc;
 			}
 
 			//double ang_x = atan(xc / dftLen);
