@@ -555,10 +555,10 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			xc = newRad.xStart + 0.5 * newRad.xStep * (newRad.nx-1);
 			zc = newRad.zStart + 0.5 * newRad.zStep * (newRad.nz-1);
 			
-			if (shift_then_kick && (nxdiv > 1 || nzdiv > 1)) {
+			/*if (shift_then_kick && (nxdiv > 1 || nzdiv > 1)) {
 				//newRad.xStart -= xc;
 				//newRad.zStart -= zc;
-			}
+			}*/
 
 			//double ang_x = atan(xc / dftLen);
 			//double ang_z = atan(zc / dftLen);
@@ -593,9 +593,11 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 #endif
 
 			srTDriftSpace internal_drift(dftLen);
-			internal_drift.shift_obsx = -xc;
-			internal_drift.shift_obsz = -zc;
-			int Ann = ParPrecWfrPropag.AnalTreatment;
+			if (shift_then_kick) {
+				internal_drift.shift_obsx = -xc;
+				internal_drift.shift_obsz = -zc;
+			}
+			// int Ann = ParPrecWfrPropag.AnalTreatment;
 			// ParPrecWfrPropag.AnalTreatment = 4;
 			if (int result = internal_drift.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
 				fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
