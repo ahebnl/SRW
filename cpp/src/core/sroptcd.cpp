@@ -495,13 +495,17 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			memset(newRad.pBaseRadX, 0, RADSZ * sizeof newRad.pBaseRadX[0]);
 			memset(newRad.pBaseRadZ, 0, RADSZ * sizeof newRad.pBaseRadZ[0]);
 
+			// the real center
+			double zc = pRadAccessData->zStart + pRadAccessData->zStep * (iz1 + iz0) / 2.0;
+			double xc = pRadAccessData->xStart + pRadAccessData->xStep * (ix1 + ix0) / 2.0;
+
 			/*if (nzdiv != 1 || nxdiv != 1) {
 				int npad = 2;
 				if (ix == 0) sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, 1, 1, 1750, 1750);
 				else if (ix == 2*SZX) sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, 1, 1, 1750, 1750);
 				else sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, 1, 1, 1, 1);
 			}*/
-			int xlpad = 8, xrpad = 8, zlpad = 8, zrpad = 8;
+			int xlpad = 1, xrpad = 1, zlpad = 1, zrpad = 1;
 			if (!shift_then_kick) { // make sure (0.0, 0.0) is in this selection
 				xlpad = max(10, (pRadAccessData->xStart + ix0 * pRadAccessData->xStep) / pRadAccessData->xStep + 8);
 				zlpad = max(10, (pRadAccessData->zStart + iz0 * pRadAccessData->zStep) / pRadAccessData->zStep + 8);
@@ -548,13 +552,6 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			fprintf(stderr, "zpd11_%d_%d hash= 0x%016zx Par method= %d %d\n", iz, ix, newRad.hashcode(), ParPrecWfrPropag.MethNo, ParPrecWfrPropag.AnalTreatment);
 #endif
 
-			// the real center
-			double xc = newRad.xStart + newRad.xStep * (newRad.nx - 1) / 2.0;
-			double zc = newRad.zStart + newRad.zStep * (newRad.nz - 1) / 2.0;
-			
-			xc = newRad.xStart + 0.5 * newRad.xStep * (newRad.nx-1);
-			zc = newRad.zStart + 0.5 * newRad.zStep * (newRad.nz-1);
-			
 			/*if (shift_then_kick && (nxdiv > 1 || nzdiv > 1)) {
 				//newRad.xStart -= xc;
 				//newRad.zStart -= zc;
