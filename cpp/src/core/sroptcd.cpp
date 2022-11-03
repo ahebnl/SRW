@@ -259,11 +259,12 @@ void sel_sub_cell(srTSRWRadStructAccessData * dst, /* const */ srTSRWRadStructAc
 void sel_sub_cell_zx(srTSRWRadStructAccessData* dst, /* const */ srTSRWRadStructAccessData& wfr, double z0, double z1, double x0, double x1,
 	int npadz0 = -1, int npadz1 = 0, int npadx0 = -1, int npadx1 = 0)
 {
-	int iz0 = std::max(int(ceil((z0 - wfr.zStart) / wfr.zStep)), 0);
-	int iz1 = std::min(long(floor((z1 - wfr.zStart) / wfr.zStep)), wfr.nz);
+	// (std::min) avoid macro expansion, a Visual Studio fix
+	int iz0 = (std::max)(int(ceil((z0 - wfr.zStart) / wfr.zStep)), 0);
+	int iz1 = (std::min)(long(floor((z1 - wfr.zStart) / wfr.zStep)), wfr.nz);
 
-	int ix0 = std::max(int(ceil((x0 - wfr.xStart) / wfr.xStep)), 0);
-	int ix1 = std::min(long(floor((x1 - wfr.xStart) / wfr.xStep)), wfr.nx);
+	int ix0 = (std::max)(int(ceil((x0 - wfr.xStart) / wfr.xStep)), 0);
+	int ix1 = (std::min)(long(floor((x1 - wfr.xStart) / wfr.xStep)), wfr.nx);
 
 	sel_sub_cell(dst, wfr, iz0, iz1, ix0, ix1, npadz0, npadz1, npadx0, npadx1);
 }
@@ -507,7 +508,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 
 			int xlpad = 8, xrpad = 8, zlpad = 8, zrpad = 8;
 			if (!shift_then_kick) { // make sure (0.0, 0.0) is in this selection
-				xlpad = std::max(10.0, (pRadAccessData->xStart + ix0 * pRadAccessData->xStep) / pRadAccessData->xStep + 8);
+				xlpad = max(10.0, (pRadAccessData->xStart + ix0 * pRadAccessData->xStep) / pRadAccessData->xStep + 8);
 				zlpad = max(10.0, (pRadAccessData->zStart + iz0 * pRadAccessData->zStep) / pRadAccessData->zStep + 8);
 				xrpad = max(10.0, -(pRadAccessData->xStart + (ix1-1) * pRadAccessData->xStep) / pRadAccessData->xStep + 8);
 				zrpad = max(10.0, -(pRadAccessData->zStart + (iz1-1) * pRadAccessData->zStep) / pRadAccessData->zStep + 8);

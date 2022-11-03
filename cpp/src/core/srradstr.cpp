@@ -5203,8 +5203,8 @@ void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& t
 	const int HDSZ = 64;
 	char buf[HDSZ] = "\x9fSRW2\x0d\x0a\x1a\x0d\0\0\0";
 	memset(buf + 12, 0, HDSZ - 12);
-	
-	strncpy(buf + 16, title.c_str(), 32);
+
+	memcpy(buf + 16, title.c_str(), min(HDSZ-16, int(title.size())));
 
 	out.write(buf, HDSZ);
 
@@ -5212,25 +5212,27 @@ void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& t
 	memset(buf2, 0, 256);
 
 	// little endian, 4 bytes int
-	strncpy(buf2,   (char*)&nz, 4);
-	strncpy(buf2+4, (char*)&nx, 4);
-	strncpy(buf2+8, (char*)&ne, 4);
+	memcpy(buf2, (char*)&nz, 4);
+	memcpy(buf2 + 4, (char*)&nx, 4);
+	memcpy(buf2 + 8, (char*)&ne, 4);
 
-	const long long N = nz * nx * ne * 2;
-	strncpy(buf2+12, (char*)& N, 8);
-	
-	strncpy(buf2+32, (char*)&zStart, 8);
-        strncpy(buf2+40, (char*)&zStep,  8); 
-        strncpy(buf2+48, (char*)&xStart, 8);
-        strncpy(buf2+56, (char*)&xStep,  8);
+	int64_t N = 2;
+	N = N * nz * nx * ne;
+	memcpy(buf2 + 12, (char*)&N, 8);
+	// fprintf(stderr, "total size: %ld\n", N);
 
-        strncpy(buf2+64, (char*)&zWfrMin, 8);
-        strncpy(buf2+72, (char*)&zWfrMax, 8);
-        strncpy(buf2+80, (char*)&xWfrMin, 8);
-        strncpy(buf2+88, (char*)&xWfrMax, 8);
+	memcpy(buf2 + 32, (char*)&zStart, 8);
+	memcpy(buf2 + 40, (char*)&zStep, 8);
+	memcpy(buf2 + 48, (char*)&xStart, 8);
+	memcpy(buf2 + 56, (char*)&xStep, 8);
 
-        out.write(buf2, 256);
-	
+	memcpy(buf2 + 64, (char*)&zWfrMin, 8);
+	memcpy(buf2 + 72, (char*)&zWfrMax, 8);
+	memcpy(buf2 + 80, (char*)&xWfrMin, 8);
+	memcpy(buf2 + 88, (char*)&xWfrMax, 8);
+
+	out.write(buf2, 256);
+
 	out.write((char*)pBaseRadZ, N * sizeof(*pBaseRadZ));
 	out.write((char*)pBaseRadX, N * sizeof(*pBaseRadX));
 
