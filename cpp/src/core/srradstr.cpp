@@ -5193,6 +5193,7 @@ size_t srTSRWRadStructAccessData::hashcode() const
 
 #include <fstream>
 
+
 void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& title) const // AH
 {
 	// WARNING: this is not complete, only part of the data are dumped. // AH
@@ -5200,27 +5201,36 @@ void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& t
 	fprintf(stderr, "dumping bin file: %s (nz=%d nx=%d ne=%d)\n", fname.c_str(), nz, nx, ne);
 	ofstream out(fname.c_str(), ios::out | ios::binary);
 	const int HDSZ = 64;
-	char buf[HDSZ];
-	memset(buf, 0, HDSZ);
-	strncpy(buf, "SRWB1", 5);
-	strncpy(buf + 5, title.c_str(), HDSZ - 5);
+	char buf[HDSZ] = "\x9fSRW2\x0d\x0a\x1a\x0d\0\0\0";
+	memset(buf + 12, 0, HDSZ - 12);
+	
+	strncpy(buf + 16, title.c_str(), 32);
 
 	out.write(buf, HDSZ);
-	out.write((char*)&nz, sizeof(nz));
-	out.write((char*)&nx, sizeof(nx));
-	out.write((char*)&ne, sizeof(ne));
 
-	out.write((char*)&zStart, sizeof(zStart));
-	out.write((char*)&zStep, sizeof(zStep));
-	out.write((char*)&xStart, sizeof(xStart));
-	out.write((char*)&xStep, sizeof(xStep));
+	char buf2[256];
+	memset(buf2, 0, 256);
 
-	out.write((char*)&zWfrMin, sizeof(zWfrMin));
-	out.write((char*)&zWfrMax, sizeof(zWfrMax));
-	out.write((char*)&xWfrMin, sizeof(xWfrMin));
-	out.write((char*)&xWfrMax, sizeof(xWfrMax));
+	// little endian, 4 bytes int
+	strncpy(buf2,   (char*)&nz, 4);
+	strncpy(buf2+4, (char*)&nx, 4);
+	strncpy(buf2+8, (char*)&ne, 4);
 
 	const long long N = nz * nx * ne * 2;
+	strncpy(buf2+12, (char*)& N, 8);
+	
+	strncpy(buf2+32, (char*)&zStart, 8);
+        strncpy(buf2+40, (char*)&zStep,  8); 
+        strncpy(buf2+48, (char*)&xStart, 8);
+        strncpy(buf2+56, (char*)&xStep,  8);
+
+        strncpy(buf2+64, (char*)&zWfrMin, 8);
+        strncpy(buf2+72, (char*)&zWfrMax, 8);
+        strncpy(buf2+80, (char*)&xWfrMin, 8);
+        strncpy(buf2+88, (char*)&xWfrMax, 8);
+
+        out.write(buf2, 256);
+	
 	out.write((char*)pBaseRadZ, N * sizeof(*pBaseRadZ));
 	out.write((char*)pBaseRadX, N * sizeof(*pBaseRadX));
 
