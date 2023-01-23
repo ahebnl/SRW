@@ -16,7 +16,7 @@
 #include "sroptapt.h"
 #include "sroptfoc.h"
 #include "sroptzp.h"
-#include "sroptcd.h"
+#include "sroptcd.h"    //ANHE
 #include "sroptwgr.h"
 #include "sroptgrat.h"
 #include "sroptgtr.h"
@@ -145,7 +145,7 @@ srTCompositeOptElem::srTCompositeOptElem(const SRWLOptC& opt)
 				pOptElem = new srTZonePlate(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y, p->e0); //OC22062019
 				//pOptElem = new srTZonePlate(p->nZones, p->rn, p->thick, p->atLen1, p->atLen2, p->delta1, p->delta2, p->x, p->y);
 			}
-			else if ((strcmp(sType, "cd") == 0) || (strcmp(sType, "CD") == 0))
+			else if ((strcmp(sType, "cd") == 0) || (strcmp(sType, "CD") == 0))   //ANHE
 			{
 				srTShapedOptElem* zp = nullptr;
 				SRWLOptCD* p = (SRWLOptCD*)(*t_arOpt);
@@ -158,7 +158,7 @@ srTCompositeOptElem::srTCompositeOptElem(const SRWLOptC& opt)
 					zp = new srTThinLens(psub->Fx, psub->Fy, psub->x, psub->y);
 				}
 
-				pOptElem = new srTConnectDrift(zp, p->dftLen, p->nxdiv, p->xdivs, p->nzdiv, p->zdivs, p->crsz); 
+				pOptElem = new srTCombinedDrift(zp, p->dftLen, p->nxdiv, p->xdivs, p->nzdiv, p->zdivs, p->crsz); 
 			}
 			else if(strcmp(sType, "waveguide") == 0)
 			{

@@ -73,7 +73,7 @@ static const char strEr_BadOptL[] = "Incorrect Optical Lens structure";
 static const char strEr_BadOptAng[] = "Incorrect Optical Angle structure";
 static const char strEr_BadOptShift[] = "Incorrect Optical Shift structure";
 static const char strEr_BadOptZP[] = "Incorrect Optical Zone Plate structure";
-static const char strEr_BadOptCD[] = "Incorrect Optical Connect Drift structure";
+static const char strEr_BadOptCD[] = "Incorrect Optical Combined Drift structure"; //ANHE01092023
 static const char strEr_BadOptWG[] = "Incorrect Optical Waveguide structure";
 static const char strEr_BadOptG[] = "Incorrect Optical Grating structure";
 static const char strEr_BadOptT[] = "Incorrect Optical Generic Transmission structure";
@@ -1780,7 +1780,7 @@ void ParseSructSRWLOptZP(SRWLOptZP* pOpt, PyObject* oOpt) //throw(...)
 /************************************************************************//**
  * Parses PyObject* to SRWLOptCD*
  ***************************************************************************/
-void ParseSructSRWLOptCD(SRWLOptCD* pOpt, PyObject* oOpt) //throw(...)
+void ParseSructSRWLOptCD(SRWLOptCD* pOpt, PyObject* oOpt) //throw(...)   //ANHE01092023
 {
 	// ParseSructSRWLOptZP(pOpt, oOpt);
 	PyObject* o_tmp = PyObject_GetAttrString(oOpt, "zpSub");
@@ -3957,7 +3957,7 @@ void DeallocOptCntArrays(SRWLOptC* pOptCnt)
 						else if((strcmp(sType, "aperture") == 0) || (strcmp(sType, "obstacle") == 0)) delete (SRWLOptA*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "lens") == 0) delete (SRWLOptL*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "zp") == 0) delete (SRWLOptZP*)(pOptCnt->arOpt[i]);
-						else if (strcmp(sType, "cd") == 0) delete (SRWLOptCD*)(pOptCnt->arOpt[i]);
+						else if (strcmp(sType, "cd") == 0) delete (SRWLOptCD*)(pOptCnt->arOpt[i]);        //ANHE01092023
 						else if(strcmp(sType, "waveguide") == 0) delete (SRWLOptWG*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "grating") == 0) delete (SRWLOptG*)(pOptCnt->arOpt[i]);
 						else if(strcmp(sType, "transmission") == 0) delete (SRWLOptT*)(pOptCnt->arOpt[i]);

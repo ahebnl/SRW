@@ -1,6 +1,6 @@
 /************************************************************************//**
- * File: sroptzp.h
- * Description: Optical element: Zone Plate (header)
+ * File: sroptcd.h
+ * Description: Optical element: Element Combined with Drift Space (header)
  * Project: Synchrotron Radiation Workshop
  * First release: 2000
  *
@@ -21,7 +21,7 @@
 
 //*************************************************************************
 
-class srTConnectDrift : public srTGenOptElem {
+class srTCombinedDrift : public srTGenOptElem {
 	double dftLen;
 	int nxdiv, nzdiv;
 	double xdivs[32], zdivs[32]; // maximum 32 divides in each dimension
@@ -30,8 +30,8 @@ class srTConnectDrift : public srTGenOptElem {
 	srTShapedOptElem* elem;
 
 public:
-	srTConnectDrift(srTStringVect* pElemInfo) {}
-	srTConnectDrift(srTShapedOptElem* _elem, double _dftLen = 0,
+	srTCombinedDrift(srTStringVect* pElemInfo) {}
+	srTCombinedDrift(srTShapedOptElem* _elem, double _dftLen = 0,
 		int _nxdiv = 0, double *_xdivs = nullptr,
 		int _nzdiv = 0, double *_zdivs = nullptr, double *_crsz=nullptr) {
 		elem = _elem;

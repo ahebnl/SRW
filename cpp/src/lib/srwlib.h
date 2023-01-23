@@ -362,18 +362,18 @@ typedef struct SRWLStructOpticsZonePlate SRWLOptZP;
 
 /**
  * Optical Element:
- * Connect Drift ("cd" type)
+ * Combined Drift ("CD" type)
  */
 
-struct SRWLStructOpticsConnectDrift { // : public SRWLStructOpticsZonePlate {
+struct SRWLStructOpticsCombinedDrift { // ANHE
 	char zpSubName[32];
-	void* zpSub; // SRWLStructOpticsZonePlate
+	void* zpSub; /* SRWLStructOpticsZonePlate */
 	double dftLen; /* length [m]*/
-	int nxdiv, nzdiv;
-	double xdivs[32], zdivs[32]; // divided ratio along horizontal (xdivs) and vertical (zdivs) direction
-	double crsz[5 * 32 * 32]; // each cell has (method, px_range, px_density, pz_range, pz_density)
+	int nxdiv, nzdiv;  /* the number of divided pieces along horizontal (nxdiv) and vertical (nzdiv) direction */
+	double xdivs[32], zdivs[32]; /* divided ratio along horizontal (xdivs) and vertical (zdivs) direction */ 
+	double crsz[5 * 32 * 32]; /* each cell has (method, px_range, px_density, pz_range, pz_density) */
 };
-typedef struct SRWLStructOpticsConnectDrift SRWLOptCD;
+typedef struct SRWLStructOpticsCombinedDrift SRWLOptCD;
 
 /**
  * Optical Element:

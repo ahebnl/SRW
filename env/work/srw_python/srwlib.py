@@ -2856,12 +2856,12 @@ class SRWLOptZP(SRWLOpt):
         aux = lamb/two_drn
         return (two_drn*self.rn/lamb)*sqrt(1 - aux*aux)
 
-class SRWLOptCD(SRWLOpt):
-    """Optical Element: Connect Drift"""
+class SRWLOptCD(SRWLOpt):    # ANHE
+    """Optical Element: Combined Drift"""
     
     def __init__(self, _zpSub, _dftLen=0, _xzdivs=[]):
         """
-        :param _zpSub: SRWLOptZP (or derived) type object defining the element connecting with a drift space
+        :param _zpSub: SRWLOptZP (or derived) type object defining the element combined with a down stream drift space
         :param _dftLen: Length [m]
         :param _xzdivs: list type; cell divide parameters and propagation parameters for each cell.
         """

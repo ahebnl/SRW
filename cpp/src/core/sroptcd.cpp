@@ -1,7 +1,7 @@
 /************************************************************************//**
  * File: sroptzp.cpp
- * Description: Optical element: Zone Plate with Drift (ZPD)
- * Author: An HE, Brookhaven National Laboratory, 2022
+ * Description: Optical element: Element Combined with Drift Space (CD)
+ * Author: AN HE, Brookhaven National Laboratory, 2022
  *
  * Project: Synchrotron Radiation Workshop
  * First release: 2000
@@ -23,7 +23,7 @@
 
 using namespace std;
 
-#define DEBUG_ZPD 4
+#define DEBUG_ZPD 0  // No output of the debug information when DEBUG_ZPD=0 
 
 template<class T>
 constexpr const T& clamp(const T& v, const T& lo, const T& hi)
@@ -214,7 +214,6 @@ void copy_sub_cell_gen(float* pdst, int nz1, int nx1, int jz, int jx,
 void sel_sub_cell(srTSRWRadStructAccessData * dst, /* const */ srTSRWRadStructAccessData& wfr, int iz0, int iz1, int ix0, int ix1,
 	int npadz0=-1, int npadz1 = 0, int npadx0 = -1, int npadx1 = 0)
 {
-	// const int npad = 4;
 	// npad.. < 0 means does not count, use whatever left
 	dst->nz = iz1 - iz0 + max(0, npadz0) + max(0, npadz1);
 	dst->nx = ix1 - ix0 + max(0, npadx0) + max(0, npadx1);
@@ -256,23 +255,23 @@ void sel_sub_cell(srTSRWRadStructAccessData * dst, /* const */ srTSRWRadStructAc
 #endif
 }
 
-void sel_sub_cell_zx(srTSRWRadStructAccessData* dst, /* const */ srTSRWRadStructAccessData& wfr, double z0, double z1, double x0, double x1,
-	int npadz0 = -1, int npadz1 = 0, int npadx0 = -1, int npadx1 = 0)
+//void sel_sub_cell_zx(srTSRWRadStructAccessData* dst, /* const */ srTSRWRadStructAccessData& wfr, double z0, double z1, double x0, double x1,
+//	int npadz0 = -1, int npadz1 = 0, int npadx0 = -1, int npadx1 = 0)
+//{
+//	// (std::min) avoid macro expansion, a Visual Studio fix
+//	int iz0 = (std::max)(int(ceil((z0 - wfr.zStart) / wfr.zStep)), 0);
+//	int iz1 = (std::min)(long(floor((z1 - wfr.zStart) / wfr.zStep)), wfr.nz);
+//
+//	int ix0 = (std::max)(int(ceil((x0 - wfr.xStart) / wfr.xStep)), 0);
+//	int ix1 = (std::min)(long(floor((x1 - wfr.xStart) / wfr.xStep)), wfr.nx);
+//
+//	sel_sub_cell(dst, wfr, iz0, iz1, ix0, ix1, npadz0, npadz1, npadx0, npadx1);
+//} no longer to be used, need to be deleted 
+
+
+void srTCombinedDrift::init_dest_rad(srTSRWRadStructAccessData& rad, const srTSRWRadStructAccessData* pinrad) const
 {
-	// (std::min) avoid macro expansion, a Visual Studio fix
-	int iz0 = (std::max)(int(ceil((z0 - wfr.zStart) / wfr.zStep)), 0);
-	int iz1 = (std::min)(long(floor((z1 - wfr.zStart) / wfr.zStep)), wfr.nz);
-
-	int ix0 = (std::max)(int(ceil((x0 - wfr.xStart) / wfr.xStep)), 0);
-	int ix1 = (std::min)(long(floor((x1 - wfr.xStart) / wfr.xStep)), wfr.nx);
-
-	sel_sub_cell(dst, wfr, iz0, iz1, ix0, ix1, npadz0, npadz1, npadx0, npadx1);
-}
-
-
-void srTConnectDrift::init_dest_rad(srTSRWRadStructAccessData& rad, const srTSRWRadStructAccessData* pinrad) const
-{
-	// get the smallest x/z Range and smallest stepsize
+	// get the largest x/z Range and smallest stepsize
 	double zStep = 1.0, xStep = 1.0; //  pinrad->zStep, xStep = pinrad->xStep;
 	double wx = 0.0; //  pinrad->xStep* (pinrad->nx - 1);
 	double wz = 0.0; //  pinrad->zStep* (pinrad->nz - 1);
@@ -364,7 +363,7 @@ void treat_phase_shift(srTSRWRadStructAccessData* pRadAccessData, double phase)
 	}
 }
 
-int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
+int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
 {
 	cout << "[WARNING!!] The ZP (nzdiv=" << nzdiv << ",nxdiv=" << nxdiv
 		<< ") with aperture and drift L= " << dftLen << endl;
@@ -375,9 +374,9 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 #if DEBUG_ZPD > 1
 	cout << "zp input hash= " << std::hex << pRadAccessData->hashcode() << endl;
 #endif
-	bool shift_then_kick = true;
-	if (nxdiv <= 2 && nzdiv <= 2 && crsz[0] == 5) { // 2x2 and method==5
-		shift_then_kick = false;
+	bool kick_then_shift = true; // do tilt method 
+	if (nxdiv <= 2 && nzdiv <= 2 && crsz[0] == 5) { // 2x2 and method==5, do padding zero method
+		kick_then_shift = false;
 	}
 
 	if (crsz[0] == 5 && (nxdiv != 2 || nzdiv != 2)) {
@@ -391,8 +390,6 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 	string fname = "junk.zpd00.bin";
 	pRadAccessData->dumpBinData(fname, "zpd0");
 #endif
-
-	// ParPrecWfrPropag.MethNo = crsz[0];
 
 	double xStep = pRadAccessData->xStep;
 	double xStart = pRadAccessData->xStart;
@@ -451,7 +448,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 	const long long RADSZ2 = destRad.nz * destRad.nx * destRad.ne * 2;
 	//memset(destRad.pBaseRadX, 0, RADSZ2 * sizeof destRad.pBaseRadX[0]);
 	//memset(destRad.pBaseRadZ, 0, RADSZ2 * sizeof destRad.pBaseRadZ[0]);
-	fprintf(stderr, "dest dim (%d %d) RADSZ2= %d shift_then_kick=%d\n", destRad.nz, destRad.nx, RADSZ2, shift_then_kick);
+	fprintf(stderr, "dest dim (%d %d) RADSZ2= %d kick_then_shift=%d\n", destRad.nz, destRad.nx, RADSZ2, kick_then_shift);
 
 	fprintf(stderr, "z in %d [%g %g] step= %g\n", pRadAccessData->nz,
 		pRadAccessData->zStart, pRadAccessData->zStart + pRadAccessData->zStep * (pRadAccessData->nz - 1),
@@ -507,7 +504,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			}*/
 
 			int xlpad = 8, xrpad = 8, zlpad = 8, zrpad = 8;
-			if (!shift_then_kick) { // make sure (0.0, 0.0) is in this selection
+			if (!kick_then_shift) { // make sure (0.0, 0.0) is in this selection
 				xlpad = max(10.0, (pRadAccessData->xStart + ix0 * pRadAccessData->xStep) / pRadAccessData->xStep + 8);
 				zlpad = max(10.0, (pRadAccessData->zStart + iz0 * pRadAccessData->zStep) / pRadAccessData->zStep + 8);
 				xrpad = max(10.0, -(pRadAccessData->xStart + (ix1-1) * pRadAccessData->xStep) / pRadAccessData->xStep + 8);
@@ -516,7 +513,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			}
 			sel_sub_cell(&newRad, *pRadAccessData, iz0, iz1, ix0, ix1, zlpad, zrpad, xlpad, xrpad);
 
-			if (!shift_then_kick) {// make sure (0.0, 0.0) is in this selection
+			if (!kick_then_shift) {// make sure (0.0, 0.0) is in this selection
 				assert(newRad.xStart < 0.0);
 				assert(newRad.xStart + (newRad.nx - 1) * newRad.xStep > 0.0);
 				assert(newRad.zStart < 0.0);
@@ -558,7 +555,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			xc = newRad.xStart + 0.5 * newRad.xStep * (newRad.nx-1);
 			zc = newRad.zStart + 0.5 * newRad.zStep * (newRad.nz-1);
 			
-			/*if (shift_then_kick && (nxdiv > 1 || nzdiv > 1)) {
+			/*if (kick_then_shift && (nxdiv > 1 || nzdiv > 1)) {
 				//newRad.xStart -= xc;
 				//newRad.zStart -= zc;
 			}*/
@@ -576,7 +573,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 
 #endif
 			/*
-			if (shift_then_kick && dftLen > 0 && (nzdiv > 1 || nxdiv > 1)) {
+			if (kick_then_shift && dftLen > 0 && (nzdiv > 1 || nxdiv > 1)) {
 				srTOptAngle inter_angle(ang_x, ang_z);
 				fprintf(stderr, "adjust angle %f %f\n", ang_x, ang_z);
 				if (int result = inter_angle.PropagateRadiation(&newRad, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
@@ -596,7 +593,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 #endif
 
 			srTDriftSpace internal_drift(dftLen);
-			if (shift_then_kick) {
+			if (kick_then_shift) {
 				internal_drift.shift_obsx = -xc;
 				internal_drift.shift_obsz = -zc;
 			}
@@ -620,7 +617,7 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 			fprintf(stderr, "zpd dft  hash= 0x%016zx\n", newRad.hashcode());
 #endif
 			
-			if (shift_then_kick) {
+			if (kick_then_shift) {
 				newRad.xStart -= xc;
 				newRad.zStart -= zc;
 			}
@@ -724,172 +721,173 @@ int srTConnectDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, sr
 	return 0;
 }
 
+// the following is related to slice the wavefront according to ring
+//int sel_sub_ring(srTSRWRadStructAccessData& dst, /* const */ srTSRWRadStructAccessData* wfr, double zx0, double wzx, int iring, int n, int npad = 0)
+//{
+//	// skip
+//	if (iring == 0 && zx0 > wfr->zStep / 2.0) return 0; // the center but zx0 is not origin
+//	if (iring > 0 && zx0 < wfr->zStep) return 0; // not the center but zx0 is too small
+//
+//	// n is total grid, including npad. i.e. there are (n - 2*npad) non-zero points each dimension
+//	// const int npad = 4;
+//	// npad.. < 0 means does not count, use whatever left
+//	
+//	dst.ne = wfr->ne;
+//	dst.xStep = dst.zStep = wzx / n;
+//	double wz = 0.0, wx = 0.0;
+//	fprintf(stderr, "select ring %d outside of (%f, %f) width= %f n= %d\n", iring, zx0, zx0, wzx, n);
+//	switch (iring) {
+//	case 0: wz = wx = wzx;  break; // fix later
+//	case 1: // right block
+//		dst.zStart = -zx0; wz = 2 * zx0 + wzx; 
+//		dst.xStart = zx0 + dst.xStep; wx = wzx;
+//		break;
+//	case 2: // bottom block
+//		dst.zStart = -zx0 - wzx; wz = wzx;
+//		dst.xStart = -zx0; wx = 2 * zx0 + wzx;
+//		break;
+//	case 3: // left
+//		dst.zStart = -zx0 - wzx; wz = 2 * zx0 + wzx;
+//		dst.xStart = -zx0 - wzx; wx = wzx;
+//		break;
+//	case 4: // top
+//		dst.xStart = -zx0 - wzx; wz = wzx;
+//		dst.zStart = zx0 + dst.zStep; wx = 2 * zx0 + wzx;
+//		break;
+//	default: exit(-1);
+//	}
+//	if (iring == 0) {
+//		dst.zStep = dst.xStep = wzx / (n - 1);
+//		dst.zStart = dst.xStart = -wzx / 2.0;
+//		dst.nz = dst.nx = next_fft_num(n+2*npad);
+//	}
+//	else {
+//		dst.zStart -= npad * dst.zStep;
+//		dst.xStart -= npad * dst.xStep;
+//		long nx0 = round(wx / dst.xStep) + 1 + npad * 2;
+//		long nz0 = round(wz / dst.zStep) + 1 + npad * 2;
+//		dst.nz = next_fft_num(nz0);
+//		dst.nx = next_fft_num(nx0);
+//		fprintf(stderr, "FFT num iring %d, nx %d +%d, nz %d +%d\n", iring, nx0, dst.nx - nx0, nz0, dst.nz - nz0);
+//	}
+//	
+//	fprintf(stderr, "ring size: [%g %g], [%g %g]\n",
+//		dst.zStart + npad * dst.zStep, dst.zStart + npad * dst.zStep + wz,
+//		dst.xStart + npad * dst.xStep, dst.xStart + npad * dst.xStep + wx);
+//	
+//	
+//	dst.xWfrMin = dst.xStart;
+//	dst.zWfrMin = dst.zStart;
+//	dst.xWfrMax = dst.xStart + dst.nx * dst.xStep;
+//	dst.zWfrMax = dst.zStart + dst.nz * dst.zStep;
+//
+//	// sampling
+//	float* rdestz = dst.pBaseRadZ, *rdestx = dst.pBaseRadX;
+//	for (int iz = 0; iz < dst.nz; ++iz) {
+//		double z = dst.zStart + iz * dst.zStep;
+//		if (z - dst.zStart  < npad * dst.zStep || z - dst.zStart > wz) continue;
+//		for (int ix = 0; ix < dst.nx; ++ix) {
+//			double x = dst.xStart + ix * dst.xStep;
+//			if (x - dst.xStart  < npad * dst.xStep || x - dst.xStart > wx) continue;
+//			do_efield_2d_sample(rdestx + iz * dst.nx * dst.ne * 2 + ix * dst.ne*2, z, x, wfr->pBaseRadX, wfr->ne, wfr->nz, wfr->nx, wfr->zStart, wfr->zStep, wfr->xStart, wfr->xStep, false /* additive */);
+//			do_efield_2d_sample(rdestz + iz * dst.nx * dst.ne * 2 + ix * dst.ne * 2, z, x, wfr->pBaseRadZ, wfr->ne, wfr->nz, wfr->nx, wfr->zStart, wfr->zStep, wfr->xStart, wfr->xStep, false /* additive */);
+//			
+//			//rdestx += wfr->ne * 2;
+//			//rdestz += wfr->ne * 2;
+//		}
+//		//
+//	}
+//	return dst.nz * dst.nx;
+//}
+//
+//// zxll0 - lower left z/x coordinate, if <0 it is the center region
+//// wzx - width (smaller one for rectangular)
+//int sel_sub_ring(srTSRWRadStructAccessData& dst, /* const */ srTSRWRadStructAccessData* wfr, int iring, double zxll0, double wzx, double minstepsz)
+//{	
+//	// the center block or other 4 blocks
+//	assert((iring == 0 && zxll0 < 0) || (iring > 0 && iring <= 4 && zxll0 > 0));
+//	dst.ne = wfr->ne;
+//	const double GAP = minstepsz;
+//	const double WDSHORT = (iring == 0 ? 2*fabs(zxll0) : wzx - GAP);
+//	const double WDLONG = (iring == 0 ? 2*fabs(zxll0) : zxll0 * 2 + wzx);
+//
+//	double wz = 0.0, wx = 0.0;
+//	// fprintf(stderr, "select ring %d outside of (%f, %f) width= %f n= %d\n", iring, zx0, zx0, wzx, n);
+//	switch (iring) {
+//	case 0:
+//		dst.xStart = dst.zStart = zxll0;  wz = wx = -2*zxll0;
+//		break;
+//	case 1: // right block
+//		dst.zStart = -zxll0; wz = WDLONG;
+//		dst.xStart = zxll0 + GAP; wx = WDSHORT;
+//		break;
+//	case 2: // bottom block
+//		dst.zStart = -zxll0 - wzx; wz = WDSHORT;
+//		dst.xStart = -zxll0; wx = WDLONG;
+//		break;
+//	case 3: // left
+//		dst.zStart = -zxll0 - wzx; wz = WDLONG;
+//		dst.xStart = -zxll0 - wzx; wx = WDSHORT;
+//		break;
+//	case 4: // top
+//		dst.zStart = zxll0 + GAP; wz = WDSHORT;
+//		dst.xStart = -zxll0 - wzx; wx = WDLONG;
+//		break;
+//	default: exit(-1);
+//	}
+//	
+//	long nx0 = ceil(wx / minstepsz);
+//	long nz0 = ceil(wz / minstepsz);
+//	dst.nz = next_fft_num(nz0);
+//	dst.nx = next_fft_num(nx0);
+//	dst.xStep = wx / (dst.nx - 1);
+//	dst.zStep = wz / (dst.nz - 1);
+//	fprintf(stderr, "FFT num iring %d, nx %d +%d, nz %d +%d\n", iring, nx0, dst.nx - nx0, nz0, dst.nz - nz0);
+//	
+//
+//	fprintf(stderr, "ring size: [%g %g], [%g %g]\n",
+//		dst.zStart, dst.zStart + wz, dst.xStart, dst.xStart + wx);
+//
+//
+//	dst.xWfrMin = dst.xStart;
+//	dst.zWfrMin = dst.zStart;
+//	dst.xWfrMax = dst.xStart + (dst.nx-1) * dst.xStep;
+//	dst.zWfrMax = dst.zStart + (dst.nz-1) * dst.zStep;
+//
+//	// sampling
+//	int npad = 0;
+//	float* rdestz = dst.pBaseRadZ, * rdestx = dst.pBaseRadX;
+//	for (int iz = 0; iz < dst.nz; ++iz) {
+//		double z = dst.zStart + iz * dst.zStep;
+//		if (z - dst.zStart  < npad * dst.zStep || z - dst.zStart > wz) continue;
+//		for (int ix = 0; ix < dst.nx; ++ix) {
+//			double x = dst.xStart + ix * dst.xStep;
+//			if (x - dst.xStart  < npad * dst.xStep || x - dst.xStart > wx) continue;
+//			do_efield_2d_sample(rdestx + iz * dst.nx * dst.ne * 2 + ix * dst.ne * 2, z, x, wfr->pBaseRadX, wfr->ne, wfr->nz, wfr->nx, wfr->zStart, wfr->zStep, wfr->xStart, wfr->xStep, false /* additive */);
+//			do_efield_2d_sample(rdestz + iz * dst.nx * dst.ne * 2 + ix * dst.ne * 2, z, x, wfr->pBaseRadZ, wfr->ne, wfr->nz, wfr->nx, wfr->zStart, wfr->zStep, wfr->xStart, wfr->xStep, false /* additive */);
+//
+//			//rdestx += wfr->ne * 2;
+//			//rdestz += wfr->ne * 2;
+//		}
+//		//
+//	}
+//	return dst.nz * dst.nx;
+//}
+//
+//// pdedge = 1, keep original stepsize
+//// pdcenter < 1, larger stepsize
+//// iring = 0, 1, 2, ..., numring - 1
+//double sub_ring_stepsize(double stepsz, double pdcenter, double pdedge, int numring, int iring)
+//{
+//	assert(numring > 0);
+//	if (numring <= 1) return stepsz;
+//	double pd = pdcenter + iring * (pdedge - pdcenter) / (numring - 1);
+//	return stepsz / pd;
+//}
+// the above is related to slice the wavefront according to ring
 
-int sel_sub_ring(srTSRWRadStructAccessData& dst, /* const */ srTSRWRadStructAccessData* wfr, double zx0, double wzx, int iring, int n, int npad = 0)
-{
-	// skip
-	if (iring == 0 && zx0 > wfr->zStep / 2.0) return 0; // the center but zx0 is not origin
-	if (iring > 0 && zx0 < wfr->zStep) return 0; // not the center but zx0 is too small
 
-	// n is total grid, including npad. i.e. there are (n - 2*npad) non-zero points each dimension
-	// const int npad = 4;
-	// npad.. < 0 means does not count, use whatever left
-	
-	dst.ne = wfr->ne;
-	dst.xStep = dst.zStep = wzx / n;
-	double wz = 0.0, wx = 0.0;
-	fprintf(stderr, "select ring %d outside of (%f, %f) width= %f n= %d\n", iring, zx0, zx0, wzx, n);
-	switch (iring) {
-	case 0: wz = wx = wzx;  break; // fix later
-	case 1: // right block
-		dst.zStart = -zx0; wz = 2 * zx0 + wzx; 
-		dst.xStart = zx0 + dst.xStep; wx = wzx;
-		break;
-	case 2: // bottom block
-		dst.zStart = -zx0 - wzx; wz = wzx;
-		dst.xStart = -zx0; wx = 2 * zx0 + wzx;
-		break;
-	case 3: // left
-		dst.zStart = -zx0 - wzx; wz = 2 * zx0 + wzx;
-		dst.xStart = -zx0 - wzx; wx = wzx;
-		break;
-	case 4: // top
-		dst.xStart = -zx0 - wzx; wz = wzx;
-		dst.zStart = zx0 + dst.zStep; wx = 2 * zx0 + wzx;
-		break;
-	default: exit(-1);
-	}
-	if (iring == 0) {
-		dst.zStep = dst.xStep = wzx / (n - 1);
-		dst.zStart = dst.xStart = -wzx / 2.0;
-		dst.nz = dst.nx = next_fft_num(n+2*npad);
-	}
-	else {
-		dst.zStart -= npad * dst.zStep;
-		dst.xStart -= npad * dst.xStep;
-		long nx0 = round(wx / dst.xStep) + 1 + npad * 2;
-		long nz0 = round(wz / dst.zStep) + 1 + npad * 2;
-		dst.nz = next_fft_num(nz0);
-		dst.nx = next_fft_num(nx0);
-		fprintf(stderr, "FFT num iring %d, nx %d +%d, nz %d +%d\n", iring, nx0, dst.nx - nx0, nz0, dst.nz - nz0);
-	}
-	
-	fprintf(stderr, "ring size: [%g %g], [%g %g]\n",
-		dst.zStart + npad * dst.zStep, dst.zStart + npad * dst.zStep + wz,
-		dst.xStart + npad * dst.xStep, dst.xStart + npad * dst.xStep + wx);
-	
-	
-	dst.xWfrMin = dst.xStart;
-	dst.zWfrMin = dst.zStart;
-	dst.xWfrMax = dst.xStart + dst.nx * dst.xStep;
-	dst.zWfrMax = dst.zStart + dst.nz * dst.zStep;
-
-	// sampling
-	float* rdestz = dst.pBaseRadZ, *rdestx = dst.pBaseRadX;
-	for (int iz = 0; iz < dst.nz; ++iz) {
-		double z = dst.zStart + iz * dst.zStep;
-		if (z - dst.zStart  < npad * dst.zStep || z - dst.zStart > wz) continue;
-		for (int ix = 0; ix < dst.nx; ++ix) {
-			double x = dst.xStart + ix * dst.xStep;
-			if (x - dst.xStart  < npad * dst.xStep || x - dst.xStart > wx) continue;
-			do_efield_2d_sample(rdestx + iz * dst.nx * dst.ne * 2 + ix * dst.ne*2, z, x, wfr->pBaseRadX, wfr->ne, wfr->nz, wfr->nx, wfr->zStart, wfr->zStep, wfr->xStart, wfr->xStep, false /* additive */);
-			do_efield_2d_sample(rdestz + iz * dst.nx * dst.ne * 2 + ix * dst.ne * 2, z, x, wfr->pBaseRadZ, wfr->ne, wfr->nz, wfr->nx, wfr->zStart, wfr->zStep, wfr->xStart, wfr->xStep, false /* additive */);
-			
-			//rdestx += wfr->ne * 2;
-			//rdestz += wfr->ne * 2;
-		}
-		//
-	}
-	return dst.nz * dst.nx;
-}
-
-// zxll0 - lower left z/x coordinate, if <0 it is the center region
-// wzx - width (smaller one for rectangular)
-int sel_sub_ring(srTSRWRadStructAccessData& dst, /* const */ srTSRWRadStructAccessData* wfr, int iring, double zxll0, double wzx, double minstepsz)
-{	
-	// the center block or other 4 blocks
-	assert((iring == 0 && zxll0 < 0) || (iring > 0 && iring <= 4 && zxll0 > 0));
-	dst.ne = wfr->ne;
-	const double GAP = minstepsz;
-	const double WDSHORT = (iring == 0 ? 2*fabs(zxll0) : wzx - GAP);
-	const double WDLONG = (iring == 0 ? 2*fabs(zxll0) : zxll0 * 2 + wzx);
-
-	double wz = 0.0, wx = 0.0;
-	// fprintf(stderr, "select ring %d outside of (%f, %f) width= %f n= %d\n", iring, zx0, zx0, wzx, n);
-	switch (iring) {
-	case 0:
-		dst.xStart = dst.zStart = zxll0;  wz = wx = -2*zxll0;
-		break;
-	case 1: // right block
-		dst.zStart = -zxll0; wz = WDLONG;
-		dst.xStart = zxll0 + GAP; wx = WDSHORT;
-		break;
-	case 2: // bottom block
-		dst.zStart = -zxll0 - wzx; wz = WDSHORT;
-		dst.xStart = -zxll0; wx = WDLONG;
-		break;
-	case 3: // left
-		dst.zStart = -zxll0 - wzx; wz = WDLONG;
-		dst.xStart = -zxll0 - wzx; wx = WDSHORT;
-		break;
-	case 4: // top
-		dst.zStart = zxll0 + GAP; wz = WDSHORT;
-		dst.xStart = -zxll0 - wzx; wx = WDLONG;
-		break;
-	default: exit(-1);
-	}
-	
-	long nx0 = ceil(wx / minstepsz);
-	long nz0 = ceil(wz / minstepsz);
-	dst.nz = next_fft_num(nz0);
-	dst.nx = next_fft_num(nx0);
-	dst.xStep = wx / (dst.nx - 1);
-	dst.zStep = wz / (dst.nz - 1);
-	fprintf(stderr, "FFT num iring %d, nx %d +%d, nz %d +%d\n", iring, nx0, dst.nx - nx0, nz0, dst.nz - nz0);
-	
-
-	fprintf(stderr, "ring size: [%g %g], [%g %g]\n",
-		dst.zStart, dst.zStart + wz, dst.xStart, dst.xStart + wx);
-
-
-	dst.xWfrMin = dst.xStart;
-	dst.zWfrMin = dst.zStart;
-	dst.xWfrMax = dst.xStart + (dst.nx-1) * dst.xStep;
-	dst.zWfrMax = dst.zStart + (dst.nz-1) * dst.zStep;
-
-	// sampling
-	int npad = 0;
-	float* rdestz = dst.pBaseRadZ, * rdestx = dst.pBaseRadX;
-	for (int iz = 0; iz < dst.nz; ++iz) {
-		double z = dst.zStart + iz * dst.zStep;
-		if (z - dst.zStart  < npad * dst.zStep || z - dst.zStart > wz) continue;
-		for (int ix = 0; ix < dst.nx; ++ix) {
-			double x = dst.xStart + ix * dst.xStep;
-			if (x - dst.xStart  < npad * dst.xStep || x - dst.xStart > wx) continue;
-			do_efield_2d_sample(rdestx + iz * dst.nx * dst.ne * 2 + ix * dst.ne * 2, z, x, wfr->pBaseRadX, wfr->ne, wfr->nz, wfr->nx, wfr->zStart, wfr->zStep, wfr->xStart, wfr->xStep, false /* additive */);
-			do_efield_2d_sample(rdestz + iz * dst.nx * dst.ne * 2 + ix * dst.ne * 2, z, x, wfr->pBaseRadZ, wfr->ne, wfr->nz, wfr->nx, wfr->zStart, wfr->zStep, wfr->xStart, wfr->xStep, false /* additive */);
-
-			//rdestx += wfr->ne * 2;
-			//rdestz += wfr->ne * 2;
-		}
-		//
-	}
-	return dst.nz * dst.nx;
-}
-
-// pdedge = 1, keep original stepsize
-// pdcenter < 1, larger stepsize
-// iring = 0, 1, 2, ..., numring - 1
-double sub_ring_stepsize(double stepsz, double pdcenter, double pdedge, int numring, int iring)
-{
-	assert(numring > 0);
-	if (numring <= 1) return stepsz;
-	double pd = pdcenter + iring * (pdedge - pdcenter) / (numring - 1);
-	return stepsz / pd;
-}
-
-
-int srTConnectDrift::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
+int srTCombinedDrift::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
 {
 	assert(nzdiv > 0 && nxdiv > 0);
 	/*if (crsz[0] == 5) { // method = 2x2 each has padding to include (0.0, 0.0)
