@@ -5194,9 +5194,9 @@ size_t srTSRWRadStructAccessData::hashcode() const
 #include <fstream>
 
 
-void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& title) const // AH
+void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& title) const // ANHE
 {
-	// WARNING: this is not complete, only part of the data are dumped. // AH
+	// WARNING: this is not complete, only part of the data are dumped. // ANHE
 
 	fprintf(stderr, "dumping bin file: %s (nz=%d nx=%d ne=%d)\n", fname.c_str(), nz, nx, ne);
 	ofstream out(fname.c_str(), ios::out | ios::binary);
