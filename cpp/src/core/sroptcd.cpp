@@ -366,7 +366,8 @@ void treat_phase_shift(srTSRWRadStructAccessData* pRadAccessData, double phase)
 int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
 {
 	cout << "[WARNING!!] The ZP (nzdiv=" << nzdiv << ",nxdiv=" << nxdiv
-		<< ") with aperture and drift L= " << dftLen << endl;
+		<< ") with aperture and drift L= " << dftLen << endl
+		<< " obs grid half-width= " << obsgrid[0] << " step= " << obsgrid[1] << endl;
 
 	assert(dftLen > 0); // NOTE: the shift, then kick (as a inverse of shift) depends on dftLen
 						// a dftLen==0 will make this inverse impossible

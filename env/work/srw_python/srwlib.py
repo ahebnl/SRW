@@ -2859,7 +2859,7 @@ class SRWLOptZP(SRWLOpt):
 class SRWLOptCD(SRWLOpt):    # ANHE
     """Optical Element: Combined Drift"""
     
-    def __init__(self, _zpSub, _dftLen=0, _xzdivs=[]):
+    def __init__(self, _zpSub, _dftLen=0, _xzdivs=[], _obsgrid=[0, 1e-9, 0, 1e-9]):
         """
         :param _zpSub: SRWLOptZP (or derived) type object defining the element combined with a down stream drift space
         :param _dftLen: Length [m]
@@ -2870,6 +2870,7 @@ class SRWLOptCD(SRWLOpt):    # ANHE
         self.xzdivs = [list(x) for x in _xzdivs]
         self.xzdivs[0].append(1.0) # the user won't need to input the boundary 1.0 (per Oleg request)
         self.xzdivs[1].append(1.0) # the user won't need to input the boundary 1.0 (per Oleg request)
+        self.obsgrid = [float(x) for x in _obsgrid] # half-width and stepsize
 
         
 class SRWLOptWG(SRWLOpt):

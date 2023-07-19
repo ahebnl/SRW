@@ -158,7 +158,7 @@ srTCompositeOptElem::srTCompositeOptElem(const SRWLOptC& opt)
 					zp = new srTThinLens(psub->Fx, psub->Fy, psub->x, psub->y);
 				}
 
-				pOptElem = new srTCombinedDrift(zp, p->dftLen, p->nxdiv, p->xdivs, p->nzdiv, p->zdivs, p->crsz); 
+				pOptElem = new srTCombinedDrift(zp, p->dftLen, p->nxdiv, p->xdivs, p->nzdiv, p->zdivs, p->crsz, p->obsgrid); 
 			}
 			else if(strcmp(sType, "waveguide") == 0)
 			{

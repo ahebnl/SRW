@@ -372,6 +372,7 @@ struct SRWLStructOpticsCombinedDrift { // ANHE
 	int nxdiv, nzdiv;  /* the number of divided pieces along horizontal (nxdiv) and vertical (nzdiv) direction */
 	double xdivs[32], zdivs[32]; /* divided ratio along horizontal (xdivs) and vertical (zdivs) direction */ 
 	double crsz[5 * 32 * 32]; /* each cell has (method, px_range, px_density, pz_range, pz_density) */
+	double obsgrid[4];
 };
 typedef struct SRWLStructOpticsCombinedDrift SRWLOptCD;
 

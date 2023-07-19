@@ -1846,6 +1846,14 @@ void ParseSructSRWLOptCD(SRWLOptCD* pOpt, PyObject* oOpt) //throw(...)   //ANHE0
 		}
 	}
 	
+	o_tmp = PyObject_GetAttrString(oOpt, "obsgrid");
+	if (o_tmp == 0) throw strEr_BadOptCD;
+	if (!PyList_Check(o_tmp)) throw strEr_BadOptCD;
+	for (int i = 0; i < 4; ++i) {
+		if (!PyNumber_Check(PyList_GetItem(o_tmp, i))) throw strEr_BadOptCD;
+		pOpt->obsgrid[i] = PyFloat_AsDouble(PyList_GetItem(o_tmp, i));
+	}
+	
 	// fprintf(stderr, "layers size: %d\n", PyList_Size(o_tmp));
 	Py_DECREF(o_tmp);
 }

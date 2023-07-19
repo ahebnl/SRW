@@ -3,3 +3,6 @@
 *.cpp.orig
 *.h.orig
 *.txt.orig
+debug
+.vs
+**/srwlpy.pyd

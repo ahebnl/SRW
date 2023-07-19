@@ -26,6 +26,7 @@ class srTCombinedDrift : public srTGenOptElem {
 	int nxdiv, nzdiv;
 	double xdivs[32], zdivs[32]; // maximum 32 divides in each dimension
 	double crsz[5 * 32 * 32]; // each cell has (method, px_range, px_density, pz_range, pz_density)
+	double obsgrid[4]; // x half-range, x stepsize, then z
 
 	srTShapedOptElem* elem;
 
@@ -33,7 +34,7 @@ public:
 	srTCombinedDrift(srTStringVect* pElemInfo) {}
 	srTCombinedDrift(srTShapedOptElem* _elem, double _dftLen = 0,
 		int _nxdiv = 0, double *_xdivs = nullptr,
-		int _nzdiv = 0, double *_zdivs = nullptr, double *_crsz=nullptr) {
+		int _nzdiv = 0, double *_zdivs = nullptr, double *_crsz=nullptr, double*_obsgrid=nullptr) {
 		elem = _elem;
 		assert(elem);
 		dftLen = _dftLen;
@@ -42,6 +43,7 @@ public:
 		nzdiv = _nzdiv;
 		memcpy(zdivs, _zdivs, nzdiv * sizeof(double));
 		memcpy(crsz, _crsz, nxdiv * nzdiv * 5 * sizeof(double));
+		memcpy(obsgrid, _obsgrid, 4 * sizeof(double));
 	}
 
 	int PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect);
