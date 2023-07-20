@@ -59,6 +59,7 @@ private:
 	double maxpd() const;
 	//void resize_dest_rad(srTSRWRadStructAccessData& rad); // const;
 	void init_dest_rad(srTSRWRadStructAccessData& rad, const srTSRWRadStructAccessData* pRadAccessData) const;
+	void init_dest_rad2(srTSRWRadStructAccessData& rad, const srTSRWRadStructAccessData* pRadAccessData) const;
 };
 
 // select subsection, accumulate and pad a srTSRWRadStructAccessData

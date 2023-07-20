@@ -313,6 +313,33 @@ void srTCombinedDrift::init_dest_rad(srTSRWRadStructAccessData& rad, const srTSR
 		rad.xStep, rad.zStep, rad.xStart, xEnd, rad.zStart, zEnd, rad.nx, rad.nz, wx, wz, xStep, zStep);
 }
 
+void srTCombinedDrift::init_dest_rad2(srTSRWRadStructAccessData& rad, const srTSRWRadStructAccessData* pinrad) const
+{
+	fprintf(stderr, "init from xStart= %g xStep= %g\n", pinrad->xStart, pinrad->xStep);
+
+	rad.xStart = obsgrid[0] * pinrad->xStart;
+	rad.zStart = obsgrid[2] * pinrad->zStart;
+	
+	rad.xStep = obsgrid[1] * pinrad->xStep;
+	rad.zStep = obsgrid[3] * pinrad->zStep;
+	
+	rad.nx = next_fft_num(2*std::abs(rad.xStart / rad.xStep)+1);
+	rad.nz = next_fft_num(2 * std::abs(rad.zStart / rad.zStep) + 1);
+
+	rad.xStart = -(rad.nx - 1) * rad.xStep / 2.0;
+	rad.zStart = -(rad.nz - 1) * rad.zStep / 2.0;
+
+	rad.ReAllocBaseRadAccordingToNeNxNz();
+
+	long long sz = rad.nx * rad.nz * rad.ne * 2;
+	memset(rad.pBaseRadX, 0, sz * sizeof rad.pBaseRadX[0]);
+	memset(rad.pBaseRadZ, 0, sz * sizeof rad.pBaseRadZ[0]);
+	double xEnd = rad.xStart + rad.xStep * (rad.nx - 1);
+	double zEnd = rad.zStart + rad.zStep * (rad.nz - 1);
+	fprintf(stderr, "the dest will have\n  step x %e z %e,\n  start x %e %e z %e %e,\n  width nx %d nz %d\n",
+		rad.xStep, rad.zStep, rad.xStart, xEnd, rad.zStart, zEnd, rad.nx, rad.nz);
+}
+
 void treat_phase_shift(srTSRWRadStructAccessData* pRadAccessData, double phase)
 {
 	float* pEx0 = pRadAccessData->pBaseRadX;
@@ -367,7 +394,8 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
 {
 	cout << "[WARNING!!] The ZP (nzdiv=" << nzdiv << ",nxdiv=" << nxdiv
 		<< ") with aperture and drift L= " << dftLen << endl
-		<< " obs grid half-width= " << obsgrid[0] << " step= " << obsgrid[1] << endl;
+		<< "  inp xStart= " << pRadAccessData->xStart << " xStep= " << pRadAccessData->xStep
+		<< "  obs grid half-width fac= " << obsgrid[0] << " step fac= " << obsgrid[1] << endl;
 
 	assert(dftLen > 0); // NOTE: the shift, then kick (as a inverse of shift) depends on dftLen
 						// a dftLen==0 will make this inverse impossible
@@ -440,7 +468,8 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
 	
 	// WARNING: assuming destRad is large enough to hold each cell
 	srTSRWRadStructAccessData destRad(pRadAccessData);
-	init_dest_rad(destRad, pRadAccessData);
+	// init_dest_rad(destRad, pRadAccessData);
+	init_dest_rad2(destRad, pRadAccessData);
 	
 #if DEBUG_ZPD > 2
 	srTSRWRadStructAccessData radAfterZP(&destRad);
@@ -529,7 +558,7 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
 
 			resz.pxm = pmx; resz.pzm = pmz;
 			resz.pxd = pdx; resz.pzd = pdz;
-			fprintf(stderr, "resz.pmd= %f, resz.pmd=%f", pmx, pmz);
+			fprintf(stderr, "resz.pmd= %f, resz.pmd=%f\n", pmx, pmz);
 			RadResizeGen(newRad, resz);
 
 #if DEBUG_ZPD > 1
@@ -700,7 +729,7 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
 	pRadAccessData->ModifyWfrNeNxNz();
 
 	CDRadStructHelper::assign(pRadAccessData, &destRad);
-	
+	fprintf(stderr, "%g %g %g %g\n", pRadAccessData->xStart, pRadAccessData->xStep, pRadAccessData->zStart, pRadAccessData->zStep);
 	//free(radx);
 	//free(radz);
 #if DEBUG_ZPD > 2
