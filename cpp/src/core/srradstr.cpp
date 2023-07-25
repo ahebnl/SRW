@@ -5198,7 +5198,7 @@ void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& t
 {
 	// WARNING: this is not complete, only part of the data are dumped. // ANHE
 
-	fprintf(stderr, "dumping bin file: %s (nz=%d nx=%d ne=%d)\n", fname.c_str(), nz, nx, ne);
+	fprintf(stderr, "dumping bin file: %s zStart= %g zStep= %g xStart= %g xStep= %g (nz=%d nx=%d ne=%d)\n", fname.c_str(), zStart, zStep, xStart, xStep, nz, nx, ne);
 	ofstream out(fname.c_str(), ios::out | ios::binary);
 	const int HDSZ = 64;
 	char buf[HDSZ] = "\x9fSRW2\x0d\x0a\x1a\x0d\0\0\0";
@@ -5239,4 +5239,70 @@ void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& t
 	out.close();
 
 	fprintf(stderr, "dumped %s (bin) title= %s\n", fname.c_str(), title.c_str());
+}
+
+
+void srTSRWRadStructAccessData::dumpBinDataCore(const string& fname, const string& title, double hwz, double hwx) const // ANHE
+{
+  // WARNING: this is not complete, only part of the data are dumped. // ANHE
+
+  fprintf(stderr, "dumping the core of bin file: %s (nz=%d nx=%d ne=%d) half width z= %g x= %g\n", fname.c_str(), nz, nx, ne, hwz, hwx);
+  ofstream out(fname.c_str(), ios::out | ios::binary);
+  const int HDSZ = 64;
+  char buf[HDSZ] = "\x9fSRW3\x0d\x0a\x1a\x0d\0\0\0";
+  memset(buf + 12, 0, HDSZ - 12);
+
+  memcpy(buf + 16, title.c_str(), min(HDSZ-16, int(title.size())));
+
+  out.write(buf, HDSZ);
+
+  char buf2[256];
+  memset(buf2, 0, 256);
+
+  // little endian, 4 bytes int
+  memcpy(buf2, (char*)&nz, 4);
+  memcpy(buf2 + 4, (char*)&nx, 4);
+  memcpy(buf2 + 8, (char*)&ne, 4);
+
+  int64_t N = 2;
+  N = N * nz * nx * ne;
+  memcpy(buf2 + 12, (char*)&N, 8);
+  // fprintf(stderr, "total size: %ld\n", N);
+
+  memcpy(buf2 + 32, (char*)&zStart, 8);
+  memcpy(buf2 + 40, (char*)&zStep, 8);
+  memcpy(buf2 + 48, (char*)&xStart, 8);
+  memcpy(buf2 + 56, (char*)&xStep, 8);
+
+  memcpy(buf2 + 64, (char*)&zWfrMin, 8);
+  memcpy(buf2 + 72, (char*)&zWfrMax, 8);
+  memcpy(buf2 + 80, (char*)&xWfrMin, 8);
+  memcpy(buf2 + 88, (char*)&xWfrMax, 8);
+
+  // the core
+  int nx1 = std::min(nx, long(std::abs(hwx/xStart*nx)));
+  int nz1 = std::min(nz, long(std::abs(hwz/zStart*nz)));
+  memcpy(buf2 + 96, (char*)&nz1, 4);
+  memcpy(buf2 + 100, (char*)&nx1, 4);
+  memcpy(buf2 + 104, (char*)&hwz, 8);
+  memcpy(buf2 + 112, (char*)&hwx, 8);
+
+  int ix1 = (nx - nx1) / 2, iz1 = (nz - nz1) / 2;
+  double z1 = zStart + iz1 * zStep;
+  double x1 = xStart + ix1 * xStep;
+
+  memcpy(buf2 + 120, (char*)&z1, 8);
+  memcpy(buf2 + 128, (char*)&x1, 8);
+
+  out.write(buf2, 256);
+
+  // out.write((char*)pBaseRadZ, N * sizeof(*pBaseRadZ));
+  // out.write((char*)pBaseRadX, N * sizeof(*pBaseRadX));
+
+  for (int iz = iz1; iz < iz1 + nz1; ++iz) out.write((char*) (pBaseRadZ + iz*nx+ix1), nx1 * ne * 2 * sizeof(*pBaseRadZ));
+  for (int iz = iz1; iz < iz1 + nz1; ++iz) out.write((char*) (pBaseRadX + iz*nx+ix1), nx1 * ne * 2 * sizeof(*pBaseRadX));
+
+  out.close();
+
+  fprintf(stderr, "dumped %s (bin) title= %s core size (%d %d)\n", fname.c_str(), title.c_str(), nz1, nx1);
 }

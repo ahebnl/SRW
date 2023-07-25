@@ -150,6 +150,7 @@ public:
 
 	size_t hashcode() const; // to compare the wavefronts exactly the same or not. // ANHE
 	void dumpBinData(const string& fname, const string& title) const; // ANHE
+  void dumpBinDataCore(const string& fname, const string& title, double hwz, double hwx) const; // ANHE
 
 	srTSRWRadStructAccessData(srTEbmDat* pElecBeam, srTTrjDat* pTrjDat, srTWfrSmp* pWfrSmp, double NxNzOversamplingFactor);
 	srTSRWRadStructAccessData(srTGsnBeam* pGsnBeam, srTWfrSmp* pWfrSmp, double NxNzOversamplingFactor);
