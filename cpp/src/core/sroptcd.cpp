@@ -20,6 +20,7 @@
 #include <cassert>
 #include <algorithm>
 #include <fstream>
+#include <unistd.h>
 
 using namespace std;
 
@@ -33,6 +34,16 @@ constexpr const T& clamp(const T& v, const T& lo, const T& hi)
 
 static long next_fft_num(long n) {
 	CGenMathFFT::NextCorrectNumberForFFT(n); return n;
+}
+
+
+#include <sys/resource.h>
+#include <sys/time.h>
+void print_usage(const char *tag)
+{
+  struct rusage u;
+  getrusage(RUSAGE_SELF, &u);
+  printf("CPU time [%s]: %ld sec user mem %ld\n", tag, u.ru_utime.tv_sec, u.ru_maxrss);
 }
 
 void do_efield_2d_sample(float *peout, double z, double x, float *pe, int ne, int nz, int nx, double z0, double dz, double x0, double dx,
@@ -269,7 +280,7 @@ void sel_sub_cell(srTSRWRadStructAccessData * dst, /* const */ srTSRWRadStructAc
 //} no longer to be used, need to be deleted 
 
 
-void srTCombinedDrift::init_dest_rad(srTSRWRadStructAccessData& rad, const srTSRWRadStructAccessData* pinrad) const
+void srTCombinedDrift::init_dest_rad(srTSRWRadStructAccessData& rad, const srTSRWRadStructAccessData* pinrad, int wg) const
 {
 	// get the largest x/z Range and smallest stepsize
 	double zStep = 1.0, xStep = 1.0; //  pinrad->zStep, xStep = pinrad->xStep;
@@ -292,7 +303,13 @@ void srTCombinedDrift::init_dest_rad(srTSRWRadStructAccessData& rad, const srTSR
 		}
 	}
 
-	rad.xStep = xStep * pinrad->xStep;
+  if (wg) {
+    fprintf(stderr, "resize step size %g %g (larger means smaller stepsize)\n", obsgrid[1], obsgrid[3]);
+    xStep /= obsgrid[1]; zStep /= obsgrid[3];
+    wx *= obsgrid[0]; wz *= obsgrid[2];
+  }
+	
+  rad.xStep = xStep * pinrad->xStep;
 	rad.zStep = zStep * pinrad->zStep;
 
 	rad.nx = wx * pinrad->xStep * (pinrad->nx - 1) / rad.xStep + 1;
@@ -422,6 +439,9 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
 	pRadAccessData->dumpBinData(fname, "zpd0");
 #endif
 
+  // sleep(30);
+  print_usage("init");
+
 	double xStep = pRadAccessData->xStep;
 	double xStart = pRadAccessData->xStart;
 	double zStep = pRadAccessData->zStep;
@@ -468,9 +488,25 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
 	// average length of Width and Height
 	double wdavg = (pRadAccessData->xStep * pRadAccessData->nx / 2.0 + pRadAccessData->zStep * pRadAccessData->nz / 2.0) / 2.0;
 	
+  // sleep(30);
+  print_usage("before_init_destRad");
+
 	// WARNING: assuming destRad is large enough to hold each cell
 	srTSRWRadStructAccessData destRad(pRadAccessData);
-  init_dest_rad(destRad, pRadAccessData);
+  init_dest_rad(destRad, pRadAccessData, 1);
+
+  // sleep(30);
+  print_usage("after_init_destRad");
+  if (false) {
+    srTRadResize resz;
+    resz.pxm = obsgrid[0]; resz.pzm = obsgrid[2];
+    resz.pxd = obsgrid[1]; resz.pzd = obsgrid[3];
+    fprintf(stderr, "resize accumulated field: resz.pxm= %f, resz.pxd=%f\n", resz.pxm, resz.pxd);
+    RadResizeGen(destRad, resz);
+    fprintf(stderr, "accum xStart= %g xStep= %g\n", destRad.xStart, destRad.xStep);
+  }
+  print_usage("resized_destRad");
+  // sleep(30);
 
 #if DEBUG_ZPD > 2
 	srTSRWRadStructAccessData radAfterZP(&destRad);
@@ -527,6 +563,8 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
 			memset(newRad.pBaseRadX, 0, RADSZ * sizeof newRad.pBaseRadX[0]);
 			memset(newRad.pBaseRadZ, 0, RADSZ * sizeof newRad.pBaseRadZ[0]);
 
+      print_usage("new_subset");
+
 			/*if (nzdiv != 1 || nxdiv != 1) {
 				int npad = 2;
 				if (ix == 0) sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, 1, 1, 1750, 1750);
@@ -543,6 +581,8 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
 				fprintf(stderr, "padding with z %d %d x %d %d\n", zlpad, zrpad, xlpad, xrpad);
 			}
 			sel_sub_cell(&newRad, *pRadAccessData, iz0, iz1, ix0, ix1, zlpad, zrpad, xlpad, xrpad);
+
+      print_usage("sel_sub_cell");
 
 			if (!kick_then_shift) {// make sure (0.0, 0.0) is in this selection
 				assert(newRad.xStart < 0.0);
@@ -561,6 +601,8 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
 			resz.pxd = pdx; resz.pzd = pdz;
 			fprintf(stderr, "resz.pmd= %f, resz.pmd=%f\n", pmx, pmz);
 			RadResizeGen(newRad, resz);
+
+      print_usage("after_resize_newRad");
 
 #if DEBUG_ZPD > 1
 			junkfdiv << "#pdizix " << iz << " " << ix << " pzd " << resz.pzd << " pxd " << resz.pxd << endl;
@@ -695,6 +737,7 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
       }
 			CDRadStructHelper::add(&destRad, &newRad);
 
+      print_usage("merged_to_destRad");
 
 #if DEBUG_ZPD > 2
 			{
@@ -724,12 +767,15 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
           pRadAccessData->xStart, pRadAccessData->xStep, pRadAccessData->zStart, pRadAccessData->zStep,
           pRadAccessData->nx, pRadAccessData->nz);
 
+  /*
   srTRadResize resz;
   resz.pxm = obsgrid[0]; resz.pzm = obsgrid[2];
   resz.pxd = obsgrid[1]; resz.pzd = obsgrid[3];
   fprintf(stderr, "resize accumulated field: resz.pxm= %f, resz.pxd=%f\n", resz.pxm, resz.pxd);
   RadResizeGen(destRad, resz);
+  */
 
+  print_usage("before_copy_to_pRadAcc");
 	pRadAccessData->nx = destRad.nx;
 	pRadAccessData->nz = destRad.nz;
 	pRadAccessData->zStart = destRad.zStart;
@@ -742,6 +788,8 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
 	// pRadAccessData->ReAllocBaseRadAccordingToNeNxNz();
 	pRadAccessData->ModifyWfrNeNxNz();
 
+  print_usage("pRadAcc_resized");
+
 	CDRadStructHelper::assign(pRadAccessData, &destRad);
 	fprintf(stderr, "%g %g %g %g\n", pRadAccessData->xStart, pRadAccessData->xStep, pRadAccessData->zStart, pRadAccessData->zStep);
 	//free(radx);
@@ -750,6 +798,7 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
 	radAfterZP.dumpBinData("junk.zpd.afterzp.bin", "zpd.afterzp.bin");
 #endif
 
+  print_usage("after_destRad_to_pRadAcc");
 	
 #if DEBUG_ZPD > 0
 	fprintf(stderr, "DONE ZPD div=(%d %d) nz=%d nx= %d\n", nzdiv, nxdiv, pRadAccessData->nz, pRadAccessData->nx);
