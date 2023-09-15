@@ -47,7 +47,8 @@ public:
 	}
 
 	int PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect);
-	
+  int PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect);
+
 	virtual int PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect);
 	
 private:
@@ -58,7 +59,7 @@ private:
 
 	double maxpd() const;
 	//void resize_dest_rad(srTSRWRadStructAccessData& rad); // const;
-	void init_dest_rad(srTSRWRadStructAccessData& rad, const srTSRWRadStructAccessData* pRadAccessData) const;
+	void init_dest_rad(srTSRWRadStructAccessData& rad, const srTSRWRadStructAccessData* pRadAccessData, int wg = 0) const;
 	void init_dest_rad2(srTSRWRadStructAccessData& rad, const srTSRWRadStructAccessData* pRadAccessData) const;
 };
 
@@ -67,6 +68,9 @@ struct CDRadStructHelper {
 public:
 	static void add(srTSRWRadStructAccessData* dest, const srTSRWRadStructAccessData* src);
 	static void assign(srTSRWRadStructAccessData* dest, const srTSRWRadStructAccessData* src);
+  static void sample(srTSRWRadStructAccessData* dest, const srTSRWRadStructAccessData* src,
+	  double xStart, double xEnd, double xStep, int nxpad,
+	  double zStart, double zEnd, double zStep, int nzpad);
 };
 
 //*************************************************************************

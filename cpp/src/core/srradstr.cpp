@@ -10,6 +10,7 @@
  * @author O.Chubar, P.Elleaume
  * @version 1.0
  ***************************************************************************/
+#define NOMINMAX
 
 #include "srradstr.h"
 #include "srradind.h"
