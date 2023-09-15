@@ -20,6 +20,7 @@
 #include <cassert>
 #include <algorithm>
 #include <fstream>
+
 #if ! _MSC_VER
 #include <unistd.h>
 #endif
@@ -837,6 +838,7 @@ int srTCombinedDrift::PropagateRad1(srTSRWRadStructAccessData* pRadAccessData, s
 
   print_usage("pRadAcc_resized");
 
+
 	CDRadStructHelper::assign(pRadAccessData, &destRad);
 	fprintf(stderr, "%g %g %g %g\n", pRadAccessData->xStart, pRadAccessData->xStep, pRadAccessData->zStart, pRadAccessData->zStep);
 	//free(radx);
@@ -1198,11 +1200,11 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
   print_usage("pRadAcc_resized");
 
 	CDRadStructHelper::assign(pRadAccessData, &destRad);
-	fprintf(stderr, "%g %g %g %g\n", pRadAccessData->xStart, pRadAccessData->xStep, pRadAccessData->zStart, pRadAccessData->zStep);
+	fprintf(stderr, "assigned destRad back to pRadAccessData: %g %g %g %g\n", pRadAccessData->xStart, pRadAccessData->xStep, pRadAccessData->zStart, pRadAccessData->zStep);
 	//free(radx);
 	//free(radz);
 #if DEBUG_ZPD > 2
-	radAfterZP.dumpBinData("junk.zpd.afterzp.bin", "zpd.afterzp.bin");
+	// destRad.dumpBinData("junk.zpd.afterzp.bin", "zpd.afterzp.bin");
 #endif
 
   print_usage("after_destRad_to_pRadAcc");
