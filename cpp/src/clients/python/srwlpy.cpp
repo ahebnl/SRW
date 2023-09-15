@@ -3977,7 +3977,8 @@ void DeallocOptCntArrays(SRWLOptC* pOptCnt)
 						{
 							DeallocOptCntArrays((SRWLOptC*)(pOptCnt->arOpt[i]));
 						}
-						else { throw "bad sType"; }
+            else if (strncmp(sType, "mirror", 6) == 0) { fprintf(stderr, "skip sType='%s'\n", sType); }
+						else { fprintf(stderr, "ERROR: bad sType '%s'\n", sType); }
 					}
 				}
 				//delete pOptCnt->arOpt[i];

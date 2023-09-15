@@ -1010,8 +1010,8 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
 			double xStart = pRadAccessData->xStart + ix0 * pRadAccessData->xStep;
 			double xEnd = xStart + (ix1 - ix0) * pRadAccessData->xStep;
 
-			int nzpad = max(0, (zEnd - zStart) * (pmz - 1) / pRadAccessData->zStep * pdz / 2);
-			int nxpad = max(0, (xEnd - xStart) * (pmx - 1) / pRadAccessData->xStep * pdx / 2);
+			int nzpad = max(0.0, (zEnd - zStart) * (pmz - 1) / pRadAccessData->zStep * pdz / 2);
+			int nxpad = max(0.0, (xEnd - xStart) * (pmx - 1) / pRadAccessData->xStep * pdx / 2);
 
 			srTSRWRadStructAccessData newRad(pRadAccessData);
 
@@ -1107,8 +1107,8 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
 				//resz.pxd = 10; resz.pzd = 10;
 				//RadResizeGen(newRad, resz);
 
-				fname = "junk.zpd2.core." + to_string(iz) + "_" + to_string(ix) + ".bin";
-				// newRad.dumpBinDataCore(fname, fname, newRad.xStep*50, newRad.zStep*50);
+				fname = "junk.zpd2.core3." + to_string(iz) + "_" + to_string(ix) + ".bin";
+				newRad.dumpBinDataCore3(fname, fname, 1000, 1000);
 				fname = "junk.zpd2." + to_string(iz) + "_" + to_string(ix) + ".bin";
 				newRad.dumpBinData(fname, fname);
 				junkfdiv << "#fout " << iz << " " << ix << " " << fname << endl;

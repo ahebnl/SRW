@@ -11,6 +11,7 @@
  * @version 1.0
  ***************************************************************************/
 #define NOMINMAX
+#include <cassert>
 
 #include "srradstr.h"
 #include "srradind.h"
@@ -5243,11 +5244,113 @@ void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& t
 }
 
 
-void srTSRWRadStructAccessData::dumpBinDataCore(const string& fname, const string& title, double hwz, double hwx) const // ANHE
+//
+// value types in dumped BIN file, odd number means a scalar
+//
+#define VAL_END     0x00
+#define VAL_INT32   0x02
+#define VAL_INT64   0x04
+#define VAL_FLOAT32 0x06
+#define VAL_FLOAT64 0x08
+static const char VAL_EOR = '$';
+#define PACK_EOR(os) os.write(&VAL_EOR, 1)
+
+
+static void pack_name(ofstream& os, const string& name, unsigned int val_type, uint64_t n = 1)
+{
+  int32_t tag = (name.size() << 8) | val_type;
+  os.write((char*)&tag, 4);
+  os.write((char*)&n, 8);
+  os.write((char*)name.c_str(), min((int)(name.size()), 1 << 24));
+}
+ 
+static void pack_int(ofstream& os, const string& name, int* val, int n) {
+  assert(sizeof(int) == 4);
+  pack_name(os, name, VAL_INT32, n);
+  os.write((char*)val, 4*n);
+  PACK_EOR(os);
+}
+ 
+static void pack_int(ofstream& os, const string& name, int64_t val) {
+  pack_name(os, name, VAL_INT64+1, 1);
+  os.write((char*)&val, 8);
+  PACK_EOR(os);
+}
+
+static void pack_float(ofstream& os, const string& name, float* val, int n) {
+  pack_name(os, name, VAL_FLOAT32, n);
+  assert(sizeof(float) == 4);
+  os.write((char*)val, 4*n);
+  PACK_EOR(os);
+}
+
+static void pack_double(ofstream& os, const string& name, double* val, int n) {
+  pack_name(os, name, VAL_FLOAT64, n);
+  assert(sizeof(double) == 8);
+  os.write((char*)val, 8*n);
+  PACK_EOR(os);
+}
+
+static void pack_double(ofstream& os, const string& name, double val) {
+  pack_name(os, name, VAL_FLOAT64 + 1, 1);
+  assert(sizeof(double) == 8);
+  os.write((char*) &val, 8);
+  PACK_EOR(os);
+}
+
+static void pack_end(ofstream& os)
+{
+  int32_t z = 0;
+  os.write((char*)& z, 4);
+  uint64_t n = 0;
+  os.write((char*)& n, 8);
+}
+
+
+void srTSRWRadStructAccessData::dumpBinData3(const string& fname, const string& title) const // ANHE
+{
+	// WARNING: this is not complete, only part of the data are dumped. // ANHE
+
+	fprintf(stderr, "dumping bin file: %s zStart= %g zStep= %g xStart= %g xStep= %g (nz=%d nx=%d ne=%d)\n", fname.c_str(), zStart, zStep, xStart, xStep, nz, nx, ne);
+	ofstream out(fname.c_str(), ios::out | ios::binary);
+	const int HDSZ = 64;
+	char buf[HDSZ] = "\x9fSRW3\x0d\x0a\x1a\x0d\0\0\0";
+	memset(buf + 12, 0, HDSZ - 12);
+
+	memcpy(buf + 16, title.c_str(), min(HDSZ-16, int(title.size())));
+
+	out.write(buf, HDSZ);
+
+  pack_int(out, "nz", nz);
+  pack_int(out, "nx", nx);
+  pack_int(out, "ne", ne);
+ 
+  int64_t N = 2LL * nz * nx * ne;
+	pack_int(out, "N", N);
+  pack_double(out, "zStart", zStart);
+  pack_double(out, "zStep", zStep);
+  pack_double(out, "xStart", xStart);
+  pack_double(out, "xStep", xStep);
+
+  pack_double(out, "zWfrMin", zWfrMin);
+  pack_double(out, "zWfrMax", zWfrMax);
+  pack_double(out, "xWfrMin", xWfrMin);
+  pack_double(out, "xWfrMax", xWfrMax);
+
+	pack_float(out, "pBaseRadZ", pBaseRadZ, N);
+	pack_float(out, "pBaseRadX", pBaseRadX, N);
+
+	out.close();
+
+	fprintf(stderr, "dumped %s (bin) title= %s\n", fname.c_str(), title.c_str());
+}
+
+// dump the center part upto cnz, cnx points
+void srTSRWRadStructAccessData::dumpBinDataCore3(const string& fname, const string& title, long cnz, long cnx) const // ANHE
 {
   // WARNING: this is not complete, only part of the data are dumped. // ANHE
 
-  fprintf(stderr, "dumping the core of bin file: %s (nz=%d nx=%d ne=%d) half width z= %g x= %g\n", fname.c_str(), nz, nx, ne, hwz, hwx);
+  fprintf(stderr, "dumping bin file: %s zStart= %g zStep= %g xStart= %g xStep= %g (nz=%d nx=%d ne=%d)\n", fname.c_str(), zStart, zStep, xStart, xStep, nz, nx, ne);
   ofstream out(fname.c_str(), ios::out | ios::binary);
   const int HDSZ = 64;
   char buf[HDSZ] = "\x9fSRW3\x0d\x0a\x1a\x0d\0\0\0";
@@ -5257,53 +5360,52 @@ void srTSRWRadStructAccessData::dumpBinDataCore(const string& fname, const strin
 
   out.write(buf, HDSZ);
 
-  char buf2[256];
-  memset(buf2, 0, 256);
+  assert(cnz > 0 && cnx > 0);
+  cnz = min(cnz, nz);
+  cnx = min(cnx, nx);
+ 
+  int iz = max(0L, (nz - cnz) / 2);
+  int ix = max(0L, (nx - cnx) / 2);
+  pack_int(out, "nz", cnz);
+  pack_int(out, "nx", cnx);
+  pack_int(out, "ne", ne);
+  pack_int(out, "nz_tot", nz);
+  pack_int(out, "nx_tot", nx);
+  pack_int(out, "ne_tot", ne);
 
-  // little endian, 4 bytes int
-  memcpy(buf2, (char*)&nz, 4);
-  memcpy(buf2 + 4, (char*)&nx, 4);
-  memcpy(buf2 + 8, (char*)&ne, 4);
+  pack_int(out, "N", 2LL*cnz*cnx*ne);
+  pack_double(out, "zStart", zStart + iz*zStep);
+  pack_double(out, "zStep", zStep);
+  pack_double(out, "xStart", xStart + ix*xStep);
+  pack_double(out, "xStep", xStep);
 
-  int64_t N = 2;
-  N = N * nz * nx * ne;
-  memcpy(buf2 + 12, (char*)&N, 8);
-  // fprintf(stderr, "total size: %ld\n", N);
+  pack_double(out, "zWfrMin", zWfrMin);
+  pack_double(out, "zWfrMax", zWfrMax);
+  pack_double(out, "xWfrMin", xWfrMin);
+  pack_double(out, "xWfrMax", xWfrMax);
 
-  memcpy(buf2 + 32, (char*)&zStart, 8);
-  memcpy(buf2 + 40, (char*)&zStep, 8);
-  memcpy(buf2 + 48, (char*)&xStart, 8);
-  memcpy(buf2 + 56, (char*)&xStep, 8);
-
-  memcpy(buf2 + 64, (char*)&zWfrMin, 8);
-  memcpy(buf2 + 72, (char*)&zWfrMax, 8);
-  memcpy(buf2 + 80, (char*)&xWfrMin, 8);
-  memcpy(buf2 + 88, (char*)&xWfrMax, 8);
-
-  // the core
-  int nx1 = std::min(nx, long(std::abs(hwx/xStart*nx)));
-  int nz1 = std::min(nz, long(std::abs(hwz/zStart*nz)));
-  memcpy(buf2 + 96, (char*)&nz1, 4);
-  memcpy(buf2 + 100, (char*)&nx1, 4);
-  memcpy(buf2 + 104, (char*)&hwz, 8);
-  memcpy(buf2 + 112, (char*)&hwx, 8);
-
-  int ix1 = (nx - nx1) / 2, iz1 = (nz - nz1) / 2;
-  double z1 = zStart + iz1 * zStep;
-  double x1 = xStart + ix1 * xStep;
-
-  memcpy(buf2 + 120, (char*)&z1, 8);
-  memcpy(buf2 + 128, (char*)&x1, 8);
-
-  out.write(buf2, 256);
-
-  // out.write((char*)pBaseRadZ, N * sizeof(*pBaseRadZ));
-  // out.write((char*)pBaseRadX, N * sizeof(*pBaseRadX));
-
-  for (int iz = iz1; iz < iz1 + nz1; ++iz) out.write((char*) (pBaseRadZ + iz*nx+ix1), nx1 * ne * 2 * sizeof(*pBaseRadZ));
-  for (int iz = iz1; iz < iz1 + nz1; ++iz) out.write((char*) (pBaseRadX + iz*nx+ix1), nx1 * ne * 2 * sizeof(*pBaseRadX));
+  float *a = new float[2*cnz*cnx*ne];
+  for (int i = 0, k = 0; i < nz; ++i) {
+    for (int j = 0; j < nx; ++j) {
+      if (i < iz || i >= iz + cnz || j < ix || j >= ix + cnx) continue;
+      int offset = i*nx*ne*2 + j*ne*2;
+      for (int ie = 0; ie < ne*2; ++ie) { a[k++] = pBaseRadZ[offset+ie]; }
+    }
+  }
+  pack_float(out, "pBaseRadZ", a, 2LL*cnz*cnx*ne);
+  
+  for (int i = 0, k = 0; i < nz; ++i) {
+    for (int j = 0; j < nx; ++j) {
+      if (i < iz || i >= iz + cnz || j < ix || j >= ix + cnx) continue;
+      int offset = i*nx*ne*2 + j*ne*2;
+      for (int ie = 0; ie < ne*2; ++ie) { a[k++] = pBaseRadX[offset+ie]; }
+    }
+  }
+  pack_float(out, "pBaseRadX", a, 2LL*cnz*cnx*ne);
 
   out.close();
 
-  fprintf(stderr, "dumped %s (bin) title= %s core size (%d %d)\n", fname.c_str(), title.c_str(), nz1, nx1);
+  fprintf(stderr, "dumped core %s (bin) title= %s\n", fname.c_str(), title.c_str());
 }
+
+
