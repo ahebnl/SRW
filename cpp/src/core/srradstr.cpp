@@ -5193,10 +5193,24 @@ size_t srTSRWRadStructAccessData::hashcode() const
 	return (h1 << 4) | (h & 15);
 }
 
+size_t srTSRWRadStructAccessData::checkNanZero() const
+{
+	long long L = nx * nz * ne * 2;
+	size_t n = 0;
+	for (long long i = 0; i < L; ++i) {
+		//if(std::isnan(pBaseRadX[i]) || pBaseRadX[i] == 0.0) ++n;
+		//if(std::isnan(pBaseRadZ[i]) || pBaseRadZ[i] == 0.0) ++n;
+		n += std::isnan(pBaseRadX[i]);
+		n += std::isnan(pBaseRadZ[i]);
+	}
+
+	return n;
+}
+
 #include <fstream>
 
 
-void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& title) const // ANHE
+void srTSRWRadStructAccessData::dumpBinData2(const string& fname, const string& title) const // ANHE
 {
 	// WARNING: this is not complete, only part of the data are dumped. // ANHE
 
@@ -5255,8 +5269,18 @@ void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& t
 static const char VAL_EOR = '$';
 #define PACK_EOR(os) os.write(&VAL_EOR, 1)
 
+void pack_header(ofstream& out, const string& title)
+{
+	const int HDSZ = 64;
+	char buf[HDSZ] = "\x9fSRW3\x0d\x0a\x1a\x0d\0\0\0";
+	memset(buf + 12, 0, HDSZ - 12);
 
-static void pack_name(ofstream& os, const string& name, unsigned int val_type, uint64_t n = 1)
+	memcpy(buf + 16, title.c_str(), min(HDSZ - 16, int(title.size())));
+
+	out.write(buf, HDSZ);
+}
+
+void pack_name(ofstream& os, const string& name, unsigned int val_type, uint64_t n = 1)
 {
   int32_t tag = (name.size() << 8) | val_type;
   os.write((char*)&tag, 4);
@@ -5264,41 +5288,41 @@ static void pack_name(ofstream& os, const string& name, unsigned int val_type, u
   os.write((char*)name.c_str(), min((int)(name.size()), 1 << 24));
 }
  
-static void pack_int(ofstream& os, const string& name, int* val, int n) {
+void pack_int(ofstream& os, const string& name, int* val, int64_t n) {
   assert(sizeof(int) == 4);
   pack_name(os, name, VAL_INT32, n);
   os.write((char*)val, 4*n);
   PACK_EOR(os);
 }
  
-static void pack_int(ofstream& os, const string& name, int64_t val) {
+void pack_int(ofstream& os, const string& name, int64_t val) {
   pack_name(os, name, VAL_INT64+1, 1);
   os.write((char*)&val, 8);
   PACK_EOR(os);
 }
 
-static void pack_float(ofstream& os, const string& name, float* val, int n) {
+void pack_float(ofstream& os, const string& name, float* val, int64_t n) {
   pack_name(os, name, VAL_FLOAT32, n);
   assert(sizeof(float) == 4);
   os.write((char*)val, 4*n);
   PACK_EOR(os);
 }
 
-static void pack_double(ofstream& os, const string& name, double* val, int n) {
+void pack_double(ofstream& os, const string& name, double* val, int64_t n) {
   pack_name(os, name, VAL_FLOAT64, n);
   assert(sizeof(double) == 8);
   os.write((char*)val, 8*n);
   PACK_EOR(os);
 }
 
-static void pack_double(ofstream& os, const string& name, double val) {
+void pack_double(ofstream& os, const string& name, double val) {
   pack_name(os, name, VAL_FLOAT64 + 1, 1);
   assert(sizeof(double) == 8);
   os.write((char*) &val, 8);
   PACK_EOR(os);
 }
 
-static void pack_end(ofstream& os)
+void pack_end(ofstream& os)
 {
   int32_t z = 0;
   os.write((char*)& z, 4);
@@ -5313,20 +5337,14 @@ void srTSRWRadStructAccessData::dumpBinData3(const string& fname, const string& 
 
 	fprintf(stderr, "dumping bin file: %s zStart= %g zStep= %g xStart= %g xStep= %g (nz=%d nx=%d ne=%d)\n", fname.c_str(), zStart, zStep, xStart, xStep, nz, nx, ne);
 	ofstream out(fname.c_str(), ios::out | ios::binary);
-	const int HDSZ = 64;
-	char buf[HDSZ] = "\x9fSRW3\x0d\x0a\x1a\x0d\0\0\0";
-	memset(buf + 12, 0, HDSZ - 12);
-
-	memcpy(buf + 16, title.c_str(), min(HDSZ-16, int(title.size())));
-
-	out.write(buf, HDSZ);
+	pack_header(out, title);
 
   pack_int(out, "nz", nz);
   pack_int(out, "nx", nx);
   pack_int(out, "ne", ne);
  
   int64_t N = 2LL * nz * nx * ne;
-	pack_int(out, "N", N);
+  pack_int(out, "N", N);
   pack_double(out, "zStart", zStart);
   pack_double(out, "zStep", zStep);
   pack_double(out, "xStart", xStart);
@@ -5352,14 +5370,9 @@ void srTSRWRadStructAccessData::dumpBinDataCore3(const string& fname, const stri
 
   fprintf(stderr, "dumping bin file: %s zStart= %g zStep= %g xStart= %g xStep= %g (nz=%d nx=%d ne=%d)\n", fname.c_str(), zStart, zStep, xStart, xStep, nz, nx, ne);
   ofstream out(fname.c_str(), ios::out | ios::binary);
-  const int HDSZ = 64;
-  char buf[HDSZ] = "\x9fSRW3\x0d\x0a\x1a\x0d\0\0\0";
-  memset(buf + 12, 0, HDSZ - 12);
-
-  memcpy(buf + 16, title.c_str(), min(HDSZ-16, int(title.size())));
-
-  out.write(buf, HDSZ);
-
+  
+  pack_header(out, title);
+  
   assert(cnz > 0 && cnx > 0);
   cnz = min(cnz, nz);
   cnx = min(cnx, nx);
@@ -5408,4 +5421,60 @@ void srTSRWRadStructAccessData::dumpBinDataCore3(const string& fname, const stri
   fprintf(stderr, "dumped core %s (bin) title= %s\n", fname.c_str(), title.c_str());
 }
 
+// dump the center part upto cnz, cnx points
+void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& title, int dnz, int dnx) const // ANHE
+{
+	// WARNING: this is not complete, only part of the data are dumped. // ANHE
+
+	fprintf(stderr, "dumping bin file: %s zStart= %g zStep= %g xStart= %g xStep= %g (nz=%d dnz=%d nx=%d dnx=%d ne=%d)\n",
+		fname.c_str(), zStart, zStep, xStart, xStep, nz, dnz, nx, dnx, ne);
+	ofstream out(fname.c_str(), ios::out | ios::binary);
+
+	pack_header(out, title);
+
+	assert(dnz < nz && dnx < nx);
+	
+	pack_int(out, "nz", nz / dnz + 1);
+	pack_int(out, "nx", nx / dnx + 1);
+	pack_int(out, "ne", ne);
+	pack_int(out, "nz_tot", nz);
+	pack_int(out, "nx_tot", nx);
+	pack_int(out, "ne_tot", ne);
+	pack_int(out, "nz_stride", dnz);
+	pack_int(out, "nx_stride", dnx);
+
+	int64_t N = 2LL * (nz / dnz+1) * (nx / dnx+1) * ne;
+	pack_int(out, "N", N);
+	pack_double(out, "zStart", zStart);
+	pack_double(out, "zStep", zStep*dnz);
+	pack_double(out, "xStart", xStart);
+	pack_double(out, "xStep", xStep*dnx);
+
+	pack_double(out, "zWfrMin", zWfrMin);
+	pack_double(out, "zWfrMax", zWfrMax);
+	pack_double(out, "xWfrMin", xWfrMin);
+	pack_double(out, "xWfrMax", xWfrMax);
+
+	float* a = new float[N];
+	for (int64_t i = 0, k = 0; i < nz; i+=dnz) {
+		for (int64_t j = 0; j < nx; j+=dnx) {
+			int64_t offset = i * nx * ne * 2LL + j * ne * 2LL;
+			for (int ie = 0; ie < ne * 2; ++ie) { a[k++] = pBaseRadZ[offset + ie]; }
+		}
+	}
+	pack_float(out, "pBaseRadZ", a, N);
+
+	for (int64_t i = 0, k = 0; i < nz; i+= dnz) {
+		for (int64_t j = 0; j < nx; j+=dnx) {
+			int64_t offset = i * nx * ne * 2LL + j * ne * 2LL;
+			for (int ie = 0; ie < ne * 2; ++ie) { a[k++] = pBaseRadX[offset + ie]; }
+		}
+	}
+	pack_float(out, "pBaseRadX", a, N);
+
+	out.close();
+	delete[]a;
+
+	fprintf(stderr, "dumped core %s (bin) title= %s\n", fname.c_str(), title.c_str());
+}
 

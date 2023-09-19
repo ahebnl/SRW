@@ -149,9 +149,12 @@ public:
 	bool m_newExtWfrCreateNotAllowed; //OC130311
 
 	size_t hashcode() const; // to compare the wavefronts exactly the same or not. // ANHE
-	void dumpBinData(const string& fname, const string& title) const; // ANHE
+	size_t checkNanZero() const; // ANHE
+	void dumpBinData2(const string& fname, const string& title) const; // ANHE
 	void dumpBinData3(const string& fname, const string& title) const; // ANHE
-  void dumpBinDataCore3(const string& fname, const string& title, long cnz, long cnx) const; // ANHE
+	void dumpBinDataCore3(const string& fname, const string& title, long cnz, long cnx) const; // ANHE
+	void dumpBinData(const string& fname, const string& title) const { dumpBinData3(fname, title); }
+	void dumpBinData(const string& fname, const string& title, int dnz, int dnx) const; // ANHE
 
 	srTSRWRadStructAccessData(srTEbmDat* pElecBeam, srTTrjDat* pTrjDat, srTWfrSmp* pWfrSmp, double NxNzOversamplingFactor);
 	srTSRWRadStructAccessData(srTGsnBeam* pGsnBeam, srTWfrSmp* pWfrSmp, double NxNzOversamplingFactor);

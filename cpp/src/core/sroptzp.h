@@ -132,6 +132,7 @@ public:
 		  double f = (RnMax*RnMax - Nzones*Nzones*lam*lam/4) / (Nzones * lam);
 		  double opd = 0; // r*r/(2*f) - r*r*r*r/(8*f*f*f);
 		  opd += r*r*r*angx/(2*f*f) + (r/x) * 3*r*r*angx*angx/(4*f);
+		  if (angx == 0.0) opd = 0.0; // ANHE (also x could be 0.0)
 		  double kz =  (5.06773065e+06)*e * opd;
 		  
 		  shiftPhase(pEx, pEz, kz);
