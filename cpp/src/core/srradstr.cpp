@@ -5429,6 +5429,8 @@ void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& t
 	fprintf(stderr, "dumping bin file: %s zStart= %g zStep= %g xStart= %g xStep= %g (nz=%d dnz=%d nx=%d dnx=%d ne=%d)\n",
 		fname.c_str(), zStart, zStep, xStart, xStep, nz, dnz, nx, dnx, ne);
 	ofstream out(fname.c_str(), ios::out | ios::binary);
+	dnz = max(1, dnz);
+	dnx = max(1, dnx);
 
 	pack_header(out, title);
 
