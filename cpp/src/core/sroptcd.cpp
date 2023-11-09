@@ -27,7 +27,7 @@
 
 using namespace std;
 
-#define DEBUG_ZPD 9  // No output of the debug information when DEBUG_ZPD=0 
+#define DEBUG_ZPD 0  // No output of the debug information when DEBUG_ZPD=0 
 
 template<class T>
 constexpr const T& clamp(const T& v, const T& lo, const T& hi)
@@ -962,7 +962,7 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
 
     // WARNING: assuming destRad is large enough to hold each cell
     srTSRWRadStructAccessData destRad(pRadAccessData);
-    init_dest_rad(destRad, pRadAccessData, 1);
+    init_dest_rad(destRad, pRadAccessData, 0); // 0 - do not scale with obsgrid yet
 
     // sleep(30);
     print_usage("after_init_destRad");
@@ -1185,6 +1185,16 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
         pRadAccessData->xStart, pRadAccessData->xStep, pRadAccessData->zStart, pRadAccessData->zStep,
         pRadAccessData->nx, pRadAccessData->nz);
 
+    { // rescale
+        srTRadResize resz;
+        resz.pxm = obsgrid[0]; resz.pzm = obsgrid[2];
+        resz.pxd = obsgrid[1] / (pRadAccessData->xStep / destRad.xStep);
+        resz.pzd = obsgrid[3] / (pRadAccessData->zStep / destRad.zStep);
+        fprintf(stderr, "resize accumulated field: resz.pxm= %f, resz.pxd=%f\n", resz.pxm, resz.pxd);
+        RadResizeGen(destRad, resz);
+        fprintf(stderr, "accum xStart= %g xStep= %g\n", destRad.xStart, destRad.xStep);
+    }
+
     print_usage("before_copy_to_pRadAcc");
     pRadAccessData->nx = destRad.nx;
     pRadAccessData->nz = destRad.nz;
@@ -1205,7 +1215,7 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
     //free(radx);
     //free(radz);
 #if DEBUG_ZPD > 2
-    // destRad.dumpBinData("junk.zpd.afterzp.bin", "zpd.afterzp.bin");
+    destRad.dumpBinData("junk.zpd.afterzp.bin", "zpd.afterzp.bin");
 #endif
 
     print_usage("after_destRad_to_pRadAcc");
