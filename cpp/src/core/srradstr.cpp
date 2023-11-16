@@ -5330,7 +5330,6 @@ void pack_end(ofstream& os)
   os.write((char*)& n, 8);
 }
 
-
 void srTSRWRadStructAccessData::dumpBinData3(const string& fname, const string& title) const // ANHE
 {
 	// WARNING: this is not complete, only part of the data are dumped. // ANHE
@@ -5406,7 +5405,7 @@ void srTSRWRadStructAccessData::dumpBinDataCore3(const string& fname, const stri
     }
   }
   pack_float(out, "pBaseRadZ", a, 2LL*cnz*cnx*ne);
-  
+
   for (int i = 0, k = 0; i < nz; ++i) {
     for (int j = 0; j < nx; ++j) {
       if (i < iz || i >= iz + cnz || j < ix || j >= ix + cnx) continue;
@@ -5421,62 +5420,79 @@ void srTSRWRadStructAccessData::dumpBinDataCore3(const string& fname, const stri
   fprintf(stderr, "dumped core %s (bin) title= %s\n", fname.c_str(), title.c_str());
 }
 
-// dump the center part upto cnz, cnx points
+// 1 -> 1, 2 -> 3, 3 -> 3, ...
+inline int odd_dn(int dn) { return max(1, (dn/2) * 2 + 1); }
+inline int istart_dn(int n_even, int dn_odd) {
+  int n1 = n_even / 2 - 1 - dn_odd / 2; // last index of left half
+  int i0 = n1 - (n1 / dn_odd) * dn_odd;
+  return i0;
+  // find i0 + nsub/2*dn_odd + 
+}
+
+// dump the beam every dnz,dnx points
 void srTSRWRadStructAccessData::dumpBinData(const string& fname, const string& title, int dnz, int dnx) const // ANHE
 {
 	// WARNING: this is not complete, only part of the data are dumped. // ANHE
 
-	fprintf(stderr, "dumping bin file: %s zStart= %g zStep= %g xStart= %g xStep= %g (nz=%d dnz=%d nx=%d dnx=%d ne=%d)\n",
-		fname.c_str(), zStart, zStep, xStart, xStep, nz, dnz, nx, dnx, ne);
-	ofstream out(fname.c_str(), ios::out | ios::binary);
-	dnz = max(1, dnz);
-	dnx = max(1, dnx);
+  assert(nz % 2 == 0 && nx % 2 == 0);
 
-	pack_header(out, title);
+  fprintf(stderr, "dumping bin file: %s zStart= %g zStep= %g xStart= %g xStep= %g (nz=%d nx=%d ne=%d)\n", fname.c_str(), zStart, zStep, xStart, xStep, nz, nx, ne);
+  ofstream out(fname.c_str(), ios::out | ios::binary);
+  
+  pack_header(out, title);
 
-	assert(dnz < nz && dnx < nx);
-	
-	pack_int(out, "nz", nz / dnz + 1);
-	pack_int(out, "nx", nx / dnx + 1);
-	pack_int(out, "ne", ne);
-	pack_int(out, "nz_tot", nz);
-	pack_int(out, "nx_tot", nx);
-	pack_int(out, "ne_tot", ne);
-	pack_int(out, "nz_stride", dnz);
-	pack_int(out, "nx_stride", dnx);
+  dnz = odd_dn(dnz);
+  int iz = istart_dn(nz, dnz);
 
-	int64_t N = 2LL * (nz / dnz+1) * (nx / dnx+1) * ne;
-	pack_int(out, "N", N);
-	pack_double(out, "zStart", zStart);
-	pack_double(out, "zStep", zStep*dnz);
-	pack_double(out, "xStart", xStart);
-	pack_double(out, "xStep", xStep*dnx);
+  dnx = odd_dn(dnx);
+  int ix = istart_dn(nx, dnx);
 
-	pack_double(out, "zWfrMin", zWfrMin);
-	pack_double(out, "zWfrMax", zWfrMax);
-	pack_double(out, "xWfrMin", xWfrMin);
-	pack_double(out, "xWfrMax", xWfrMax);
+  assert(ix >= 0 && iz >= 0);
+  int cnz = (nz - 1 - iz) / dnz + 1;
+  int cnx = (nx - 1 - ix) / dnx + 1;
+ 
+  pack_int(out, "nz", cnz);
+  pack_int(out, "nx", cnx);
+  pack_int(out, "ne", ne);
+  pack_int(out, "nz_tot", nz);
+  pack_int(out, "nx_tot", nx);
+  pack_int(out, "ne_tot", ne);
+  pack_int(out, "dnz", dnz);
+  pack_int(out, "dnx", dnx);
+  pack_int(out, "ix0", ix);
+  pack_int(out, "iz0", iz);
 
-	float* a = new float[N];
-	for (int64_t i = 0, k = 0; i < nz; i+=dnz) {
-		for (int64_t j = 0; j < nx; j+=dnx) {
-			int64_t offset = i * nx * ne * 2LL + j * ne * 2LL;
-			for (int ie = 0; ie < ne * 2; ++ie) { a[k++] = pBaseRadZ[offset + ie]; }
-		}
-	}
-	pack_float(out, "pBaseRadZ", a, N);
+  pack_int(out, "N", 2LL*cnz*cnx*ne);
+  pack_double(out, "zStart", zStart + iz*zStep);
+  pack_double(out, "zStep", zStep*dnz);
+  pack_double(out, "xStart", xStart + ix*xStep);
+  pack_double(out, "xStep", xStep*dnx);
 
-	for (int64_t i = 0, k = 0; i < nz; i+= dnz) {
-		for (int64_t j = 0; j < nx; j+=dnx) {
-			int64_t offset = i * nx * ne * 2LL + j * ne * 2LL;
-			for (int ie = 0; ie < ne * 2; ++ie) { a[k++] = pBaseRadX[offset + ie]; }
-		}
-	}
-	pack_float(out, "pBaseRadX", a, N);
+  pack_double(out, "zWfrMin", zWfrMin);
+  pack_double(out, "zWfrMax", zWfrMax);
+  pack_double(out, "xWfrMin", xWfrMin);
+  pack_double(out, "xWfrMax", xWfrMax);
 
-	out.close();
-	delete[]a;
+  float *a = new float[2*cnz*cnx*ne];
+  for (int i = iz, k = 0; i < nz; i += dnz) {
+    for (int j = ix; j < nx; j += dnx) {
+      int offset = i*nx*ne*2 + j*ne*2;
+      for (int ie = 0; ie < ne*2; ++ie) { a[k++] = pBaseRadZ[offset+ie]; }
+    }
+  }
+  pack_float(out, "pBaseRadZ", a, 2LL*cnz*cnx*ne);
 
-	fprintf(stderr, "dumped core %s (bin) title= %s\n", fname.c_str(), title.c_str());
-}
+  for (int i = iz, k = 0; i < nz; i += dnz) {
+    for (int j = ix; j < nx; j += dnx) {
+      int offset = i*nx*ne*2 + j*ne*2;
+      for (int ie = 0; ie < ne*2; ++ie) { a[k++] = pBaseRadX[offset+ie]; }
+    }
+  }
+  pack_float(out, "pBaseRadX", a, 2LL*cnz*cnx*ne);
+
+  out.close();
+
+  fprintf(stderr, "dumping bin file: %s zStart= %g zStep= %g xStart= %g xStep= %g (nz=%d iz=%d dnz=%d nx=%d ix= %d dnx=%d ne=%d)\n",
+		fname.c_str(), zStart, zStep, xStart, xStep, nz, iz, dnz, nx, ix, dnx, ne);
+}	
 

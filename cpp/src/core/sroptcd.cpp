@@ -27,7 +27,7 @@
 
 using namespace std;
 
-#define DEBUG_ZPD 0  // No output of the debug information when DEBUG_ZPD=0 
+#define DEBUG_ZPD 2  // No output of the debug information when DEBUG_ZPD=0 
 
 template<class T>
 constexpr const T& clamp(const T& v, const T& lo, const T& hi)
@@ -541,10 +541,6 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
 
     // elem->PropagateRadiation(pRadAccessData, ParPrecWfrPropag, ResBeforeAndAfterVect);
 
-#if DEBUG_ZPD > 1
-    ofstream junkfdiv("junk.main.txt");
-    junkfdiv << "#nzdiv,nxdiv " << nzdiv << " " << nxdiv << endl;
-#endif
 
     // original center
     //double xc0 = pRadAccessData->xStart + pRadAccessData->xStep * pRadAccessData->nx / 2.0;
@@ -557,7 +553,7 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
 
     // WARNING: assuming destRad is large enough to hold each cell
     srTSRWRadStructAccessData destRad(pRadAccessData);
-    init_dest_rad(destRad, pRadAccessData, 0); // 0 - do not scale with obsgrid yet
+    init_dest_rad(destRad, pRadAccessData, 1); // 0 - do not scale with obsgrid yet
 
     // sleep(30);
     print_usage("after_init_destRad");
@@ -572,9 +568,6 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
     print_usage("resized_destRad");
     // sleep(30);
 
-#if DEBUG_ZPD > 2
-    srTSRWRadStructAccessData radAfterZP(&destRad);
-#endif
 
     const long long RADSZ2 = destRad.nz * destRad.nx * destRad.ne * 2;
     //memset(destRad.pBaseRadX, 0, RADSZ2 * sizeof destRad.pBaseRadX[0]);
@@ -629,6 +622,7 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
 
             srTSRWRadStructAccessData newRad(pRadAccessData);
 
+            // sample with smaller step size, before passing ZP
             CDRadStructHelper::sample(&newRad, pRadAccessData,
                 xStart, xEnd, pRadAccessData->xStep / pdx, nxpad,
                 zStart, zEnd, pRadAccessData->zStep / pdz, nzpad);
@@ -647,10 +641,9 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
                 else sel_sub_cell(&newRad, *pRadAccessData, iz, iz + SZZ, ix, ix + SZX, 1, 1, 1, 1);
             }*/
 
-#if DEBUG_ZPD > 5
+#if DEBUG_ZPD > 1
             fname = "junk.zpd10." + to_string(iz) + "_" + to_string(ix) + ".bin";
             newRad.dumpBinData(fname, fname, newRad.nz/1000, newRad.nx/1000);
-            junkfdiv << "#fin " << iz << " " << ix << " " << fname << endl;
             fprintf(stderr, "zpd10.%d_%d has %lld zero/NaN\n", iz, ix, newRad.checkNanZero());
 #endif
 
@@ -660,10 +653,9 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
                 return result;
             }
 
-#if DEBUG_ZPD > 5
+#if DEBUG_ZPD > 1
             fname = "junk.zpd11." + to_string(iz) + "_" + to_string(ix) + ".bin";
             newRad.dumpBinData(fname, fname, newRad.nz / 1000, newRad.nx / 1000);
-            junkfdiv << "#fin " << iz << " " << ix << " " << fname << endl;
 
             fprintf(stderr, "zpd11_%d_%d hash= 0x%016zx Par method= %d %d\n", iz, ix, newRad.hashcode(), ParPrecWfrPropag.MethNo, ParPrecWfrPropag.AnalTreatment);
             fprintf(stderr, "zpd11.%d_%d has %lld zero/NaN\n", iz, ix, newRad.checkNanZero());
@@ -703,18 +695,12 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
             }
 
 
-#if DEBUG_ZPD > 5
-            fname = "junk.zpd13." + to_string(iz) + "_" + to_string(ix) + ".bin";
-            newRad.dumpBinData(fname, fname, newRad.nz / 1000, newRad.nx / 1000);
-            // newRad.dumpBinData(fname, fname);
+#if DEBUG_ZPD > 1
             fprintf(stderr, "zpd13.%d_%d has %lld zero/NaN\n", iz, ix, newRad.checkNanZero());
 #endif
 
             // treat_phase_shift(&newRad, (xc*xc + zc*zc) / dftLen);
 
-#if DEBUG_ZPD > 2
-            fprintf(stderr, "zpd dft  hash= 0x%016zx\n", newRad.hashcode());
-#endif
 
             if (kick_then_shift) {
                 newRad.xStart -= xc;
@@ -722,7 +708,7 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
             }
 
 
-#if DEBUG_ZPD > 1
+#if DEBUG_ZPD > 0
             {
                 //srTRadResize resz;
 
@@ -734,14 +720,34 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
                 newRad.dumpBinDataCore3(fname, fname, 1000, 1000);
                 fname = "junk.zpd2." + to_string(iz) + "_" + to_string(ix) + ".bin";
                 newRad.dumpBinData(fname, fname, newRad.nz / 2000, newRad.nx / 2000);
-                junkfdiv << "#fout " << iz << " " << ix << " " << fname << endl;
                 {
                     const auto itm = std::minmax_element(destRad.pBaseRadX, destRad.pBaseRadX + RADSZ2);
                     fprintf(stderr, "min= %g max %g\n", *itm.first, *itm.second);
                 }
                 // fprintf(stderr, "Slice (iz, ix) = %d %d Hash= 0x%016zx, Hash= 0x%016zx\n", iz, ix, pRadAccessData->hashcode(), newRad.hashcode());
+                { // rescale only for saving files
+                   srTRadResize resz;
+                   resz.pxm = resz.pzm = 1.0;
+                   resz.pxd = 1200.0 / newRad.nx;
+                   resz.pzd = 1200.0 / newRad.nz;
+                   // fprintf(stderr, "resize field: resz.pxm= %f, resz.pxd=%f\n", resz.pxm, resz.pxd);
+                   srTSRWRadStructAccessData junkRad(newRad);
+                   RadResizeGen(junkRad, resz);
+                   fname = "junk.zpd2.resz." + to_string(iz) + "_" + to_string(ix) + ".bin";
+                   junkRad.dumpBinData(fname, fname); 
+                }
             }
 #endif
+
+
+            srTRadResize resz;
+            resz.pxm = obsgrid[0]; resz.pzm = obsgrid[2];
+            resz.pxd = obsgrid[1];
+            resz.pzd = obsgrid[3];
+            fprintf(stderr, "resize field after drift before accumulation: resz.pxm= %f, resz.pxd=%f\n", resz.pxm, resz.pxd);
+            RadResizeGen(newRad, resz);
+            fprintf(stderr, "before accum xStart= %g xStep= %g\n", newRad.xStart, newRad.xStep);
+
 
             {
                 //debug
@@ -760,31 +766,33 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
 
 
             // accumulate_rad(destRad.pBaseRadX, destRad.pBaseRadZ, pRadAccessData->nx, pRadAccessData->nz, xStart, xStep, zStart, zStep, newRad);
-            if (newRad.xStep > destRad.xStep || newRad.zStep > destRad.zStep) {
+            if (newRad.xStep > 1.02*destRad.xStep || newRad.zStep > 1.02*destRad.zStep) {
                 fprintf(stderr, "WARNING: propagated slice has larger grid %g %g than observation point (%g %g), the accumulated field may have flat top\n", newRad.xStep, newRad.zStep, destRad.xStep, destRad.zStep);
             }
             CDRadStructHelper::add(&destRad, &newRad);
 
             print_usage("merged_to_destRad");
 
-#if DEBUG_ZPD > 2
+#if DEBUG_ZPD > 1
             {
                 fname = "junk.zpd2.sum." + to_string(iz) + "_" + to_string(ix) + ".bin";
-                destRad.dumpBinData(fname, fname);
+                destRad.dumpBinData(fname, fname, destRad.nz/2000, destRad.nx/2000);
+                fname = "junk.zpd2.sum.core3." + to_string(iz) + "_" + to_string(ix) + ".bin";
+                destRad.dumpBinDataCore3(fname, fname, 1200, 1200);
             }
 #endif
         }
     }
 
-    fprintf(stderr, "destRad: x %g %g z %g %g nx= %d nz= %d\n",
-        pRadAccessData->xStart, pRadAccessData->xStep, pRadAccessData->zStart, pRadAccessData->zStep,
-        pRadAccessData->nx, pRadAccessData->nz);
+#if DEBUG_ZPD > 1
+    destRad.dumpBinData("junk.zpd.afterzp.bin", "zpd.afterzp.bin");
+#endif
 
-    { // rescale
+    if (false) { // rescale
         srTRadResize resz;
         resz.pxm = obsgrid[0]; resz.pzm = obsgrid[2];
-        resz.pxd = obsgrid[1] / (pRadAccessData->xStep / destRad.xStep);
-        resz.pzd = obsgrid[3] / (pRadAccessData->zStep / destRad.zStep);
+        resz.pxd = obsgrid[1];
+        resz.pzd = obsgrid[3];
         fprintf(stderr, "resize accumulated field: resz.pxm= %f, resz.pxd=%f\n", resz.pxm, resz.pxd);
         RadResizeGen(destRad, resz);
         fprintf(stderr, "accum xStart= %g xStep= %g\n", destRad.xStart, destRad.xStep);
@@ -807,24 +815,15 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
 
     CDRadStructHelper::assign(pRadAccessData, &destRad);
     fprintf(stderr, "assigned destRad back to pRadAccessData: %g %g %g %g\n", pRadAccessData->xStart, pRadAccessData->xStep, pRadAccessData->zStart, pRadAccessData->zStep);
-    //free(radx);
-    //free(radz);
-#if DEBUG_ZPD > 2
-    destRad.dumpBinData("junk.zpd.afterzp.bin", "zpd.afterzp.bin");
-#endif
 
     print_usage("after_destRad_to_pRadAcc");
 
 #if DEBUG_ZPD > 0
     fprintf(stderr, "DONE ZPD div=(%d %d) nz=%d nx= %d\n", nzdiv, nxdiv, pRadAccessData->nz, pRadAccessData->nx);
     fflush(stderr);
-    // pRadAccessData->dumpBinData("junk.zpd.bin", "junk.zpd.bin");
-    destRad.dumpBinData("junk.zpd.bin", "final, but before copy to pRadAccessData");
+    pRadAccessData->dumpBinData("junk.zpd.bin", "final pRadAccessData");
 #endif
 
-#if DEBUG_ZPD > 1
-    junkfdiv.close();
-#endif
 
     return 0;
 }
