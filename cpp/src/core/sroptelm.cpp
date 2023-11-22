@@ -2528,7 +2528,8 @@ int srTGenOptElem::RadResizeGen(srTSRWRadStructAccessData& SRWRadStructAccessDat
 
 			if(NewSRWRadStructAccessData.BaseRadWasEmulated) 
 			{
-				if(result = NewSRWRadStructAccessData.AllocBaseRadAccordingToNeNxNz()) return result;
+				// if(result = NewSRWRadStructAccessData.AllocBaseRadAccordingToNeNxNz()) return result;
+				if(result = NewSRWRadStructAccessData.ReAllocBaseRadAccordingToNeNxNz()) return result; // ANHE bugfix of memory leak 2023/11/21
 
 				//Added by SY (for profiling?) at parallelizing SRW via OpenMP:
 				//srwlPrintTime(":RadResizeGen: AllocBaseRadAccordingToNeNxNz",&start);

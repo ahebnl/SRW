@@ -27,7 +27,7 @@
 
 using namespace std;
 
-#define DEBUG_ZPD 2  // No output of the debug information when DEBUG_ZPD=0 
+#define DEBUG_ZPD 1  // No output of the debug information when DEBUG_ZPD=0 
 
 template<class T>
 constexpr const T& clamp(const T& v, const T& lo, const T& hi)
@@ -523,7 +523,7 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
     srTDriftSpace internal_drift(dftLen);
     // internal_drift.LocalPropMode = 1;
 
-#if DEBUG_ZPD > 0
+#if DEBUG_ZPD > 1
     // fprintf(stderr, "input xStep= %g zStep= %g\n", pRadAccessData->xStep, pRadAccessData->zStep);
     srTSRWRadStructAccessData newRad0(pRadAccessData);
 
@@ -708,7 +708,7 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
             }
 
 
-#if DEBUG_ZPD > 0
+#if DEBUG_ZPD > 1
             {
                 //srTRadResize resz;
 
@@ -818,7 +818,7 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
 
     print_usage("after_destRad_to_pRadAcc");
 
-#if DEBUG_ZPD > 0
+#if DEBUG_ZPD > 1
     fprintf(stderr, "DONE ZPD div=(%d %d) nz=%d nx= %d\n", nzdiv, nxdiv, pRadAccessData->nz, pRadAccessData->nx);
     fflush(stderr);
     pRadAccessData->dumpBinData("junk.zpd.bin", "final pRadAccessData");
