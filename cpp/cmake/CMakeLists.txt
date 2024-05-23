@@ -114,6 +114,7 @@ set(core_source_files
     ../src/core/srmatsta.cpp
     ../src/core/sroptapt.cpp
     ../src/core/sroptcnt.cpp
+    ../src/core/sroptcd.cpp
     ../src/core/sroptdrf.cpp
     ../src/core/sroptel2.cpp
     ../src/core/sroptel3.cpp

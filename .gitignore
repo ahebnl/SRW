@@ -24,3 +24,4 @@ docs/build/
 .vscode/
 __srwl_logs__/
 uti_plot*.png
+**/.ipynb_checkpoints/
