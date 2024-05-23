@@ -203,6 +203,9 @@ struct srTStokesC {
 
 struct srTEFieldPtrs {
 	float *pExRe, *pExIm, *pEzRe, *pEzIm;
+#ifdef _OFFLOAD_GPU //HG02122023
+	GPU_PORTABLE
+#endif
 	srTEFieldPtrs(float* In_pExRe =0, float* In_pExIm =0, float* In_pEzRe =0, float* In_pEzIm =0) 
 	{ 
 		pExRe = In_pExRe; pExIm = In_pExIm; pEzRe = In_pEzRe; pEzIm = In_pEzIm;
@@ -689,7 +692,7 @@ struct srTRadSect1D {
 
 	float *pEx, *pEz;
 	double ArgStep, ArgStart, ArgStartTr;
-	long np;
+	long np; //OC03082023 (rolled back)
 	//long long np; //OC26042019
 
 	double eVal, OtherCoordVal;
@@ -909,7 +912,8 @@ struct srTRadSect1D {
 			{
 				if(Ix > Imax) { Imax = Ix; cOut = 'x';}
 			}
-			else if(Iz > Ix)
+			else //OC01122021
+			//else if(Iz > Ix)
 			{
 				if(Iz > Imax) { Imax = Iz; cOut = 'z';}
 			}
@@ -1328,6 +1332,11 @@ struct srTWaveAccessData {
 	char DimUnits[10][255];
 	char DataUnits[255];
 
+	long long itStart, itFin; //OC21042021 (is it correct place for this?)
+
+	//OC20042021
+	char DataType; //Copies SRWLRadMesh::type, to indicate that Mutual Intensity / CSD data is stored
+
 	waveHndl wHndl;
 	int hState;
 
@@ -1421,7 +1430,16 @@ struct srTWaveAccessData {
 		DimSteps[1] = step2;
 		DimSteps[2] = step3;
 
+		if((AmOfDims == 2) && (pMesh->ne == 1)) //OC22062021 (photon energy is required for some types of processing, e.g. Quad. Phase Terms subtraction from MI/CSD)
+		{
+			DimStartValues[2] = pMesh->eStart;
+		}
+
+		DataType = pMesh->type; //OC20042021
 		//To process Mutual Intensity case: pMesh->type == 'm' !
+
+		itStart = pMesh->itStart; //OC21042021
+		itFin = pMesh->itFin;
 	}
 
 	void Init()
@@ -1438,6 +1456,10 @@ struct srTWaveAccessData {
 		}
 		*NameOfWave = '\0';
 		*DataUnits = '\0';
+
+		DataType = 0; //OC20042021
+		itStart = -1;
+		itFin = -1;
 	}
 
 	void OutRealData(double* ArrToFill, long long MaxLen)
@@ -1577,6 +1599,9 @@ struct srTInterpolAux01 {
 	double cAx2z0, cAx2z1, cAx2z2, cAx2z3, cAx3z0, cAx3z1, cAx3z2, cAx3z3;
 	double cLAx1z0, cLAx0z1, cLAx1z1;
 
+#ifdef _OFFLOAD_GPU //HG02122023
+	GPU_PORTABLE
+#endif
 	srTInterpolAux01()
 	{
 		cAx0z1 = 0.1666666667;
@@ -1643,10 +1668,18 @@ struct srTInterpolAuxF {
 	float f03, f13, f23, f33;
 
 	float fAvg, fNorm;
+
+#ifdef _OFFLOAD_GPU //HG02122023
+	GPU_PORTABLE
+#endif
 	void SetUpAvg()
 	{
 		fAvg = (float)(0.0625*(f00 + f10 + f20 + f30 + f01 + f11 + f21 + f31 + f02 + f12 + f22 + f32 + f03 + f13 + f23 + f33));
 	}
+
+#ifdef _OFFLOAD_GPU //HG02122023
+	GPU_PORTABLE
+#endif
 	void NormalizeByAvg()
 	{
 		const float CritNorm = 1.;
@@ -1713,11 +1746,17 @@ struct srTDataPtrsForWfrEdgeCorr {
 	double dxSt, dxFi, dzSt, dzFi, dx, dz;
 	char WasSetup;
 
+#ifdef _OFFLOAD_GPU //HG02122023
+	GPU_PORTABLE
+#endif
 	srTDataPtrsForWfrEdgeCorr()
 	{
 		InitializeAll();
 	}
 
+#ifdef _OFFLOAD_GPU //HG02122023
+	GPU_PORTABLE
+#endif
 	void InitializeAll()
 	{
 		ExpArrXSt = ExpArrXFi = 0;
@@ -1736,6 +1775,9 @@ struct srTDataPtrsForWfrEdgeCorr {
 		}
 		WasSetup = 0;
 	}
+#ifdef _OFFLOAD_GPU //HG02122023
+	GPU_PORTABLE
+#endif
 	void DisposeData()
 	{
 		if(ExpArrXSt != 0) delete[] ExpArrXSt;

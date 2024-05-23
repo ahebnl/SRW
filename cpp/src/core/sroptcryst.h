@@ -8,8 +8,8 @@
  * Copyright (C) Diamond Light Source, UK
  * All Rights Reserved
  *
- * @author J.Sutter, A.Suvorov, O.Chubar
- * @version 1.0
+ * @author J.Sutter, A.Suvorov, O.Chubar, A. Rodriguez-Fernandez, I. Petrov
+ * @version 1.5
  ***************************************************************************/
 
 #ifndef __SROPTCRYST_H
@@ -17,6 +17,7 @@
 
 #include "sroptelm.h"
 #include "srwlib.h"
+#include "gminterp.h" //OC08012021
 
 #undef max //to avoid name conflict of numeric_limits<double>::max() and #define max(a, b) to allow for compilation with VC++2013
 #include <limits>
@@ -75,7 +76,9 @@ class srTOptCryst : public srTGenOptElem {
 	double m_cos2t; //cos(2.*thBrd); 
 
 	srTOptCrystMeshTrf *m_pMeshTrf;
-	double m_eStartAux, m_eStepAux, m_ne;
+	double m_eStartAux, m_eStepAux;// , m_ne;
+	int m_ne; //OC21012024
+	//long long m_ne; //OC03082023
 	//bool m_xStartIsConstInSlicesE, m_zStartIsConstInSlicesE;
 
 public:
@@ -126,7 +129,8 @@ public:
 		{//Laue
 			//IP14062019 change recipr. lat. vector for Laue
 			m_HXAi[0] = 0.;
-			m_HXAi[1] = -sin(alphrd)/m_dA;
+			m_HXAi[1] = sin(alphrd)/m_dA; //OC28112021 (changed sign following GitHub req.)
+			//m_HXAi[1] = -sin(alphrd)/m_dA;
 			m_HXAi[2] = -cos(alphrd)/m_dA;
 		}
 
@@ -184,19 +188,20 @@ public:
 		//printf("Bragg angle = %f\n",thBrd*180./pi); 
 		m_cos2t = cos(2.*thBrd);
 
-		//ARF03062019
-		if((m_uc == 1) || (m_uc == 2))
-		{//Bragg
-			m_HXAi_bee[0] = 0; //ARF03062019 Change definition for the calculation of bee
-			m_HXAi_bee[1] = cos(thBrd) / m_dA; //ARF03062019 Change definition for the calculation of bee
-			m_HXAi_bee[2] = -sin(thBrd) / m_dA; //ARF03062019 Change definition for the calculation of bee
-		}
-		else if((m_uc == 3) || (m_uc == 4))
-		{//Laue
-			m_HXAi_bee[0] = 0; //ARF03062019 Change definition for the calculation of bee
-			m_HXAi_bee[1] = -sin(thBrd) / m_dA; //IP14062019 for Laue pi/2 rotation of rec. vector from Bragg
-			m_HXAi_bee[2] = -cos(thBrd) / m_dA; //IP14062019 
-		}
+		//OC28112021 (commented-out the lines below, following the suggestion on GitHub)
+		////ARF03062019
+		//if((m_uc == 1) || (m_uc == 2))
+		//{//Bragg
+		//	m_HXAi_bee[0] = 0; //ARF03062019 Change definition for the calculation of bee
+		//	m_HXAi_bee[1] = cos(thBrd) / m_dA; //ARF03062019 Change definition for the calculation of bee
+		//	m_HXAi_bee[2] = -sin(thBrd) / m_dA; //ARF03062019 Change definition for the calculation of bee
+		//}
+		//else if((m_uc == 3) || (m_uc == 4))
+		//{//Laue
+		//	m_HXAi_bee[0] = 0; //ARF03062019 Change definition for the calculation of bee
+		//	m_HXAi_bee[1] = -sin(thBrd) / m_dA; //IP14062019 for Laue pi/2 rotation of rec. vector from Bragg
+		//	m_HXAi_bee[2] = -cos(thBrd) / m_dA; //IP14062019 
+		//}
 
 		// Conversion of polarization vector components to crystal frame: 
 		//e1X[0] = RLabXt[0][0];
@@ -483,10 +488,12 @@ public:
 		absMaxAngTest = ::abs(zEndOld);
 		if(absMaxAng < absMaxAngTest) absMaxAng = absMaxAngTest;
 
-		int nMesh = 1;
+		int nMesh = 1; //OC21012024
+		//long long nMesh = 1; //OC03082023
 		if(pRad->ne > 1) nMesh = pRad->ne + 1;
 
-		const double tolCrossTerm = 1.e-03; //1.e-04; //to steer
+		//const double tolCrossTerm = 1.e-04; //to steer
+		const double tolCrossTerm = 1.e-03; //1.e-04; //OC20012021 (changed back?) //to steer
 		const double tolFractStepMeshChange = 0.1; //to steer
 
 		srTOptCrystMeshTrf *tMeshTrf = pMeshTrf;
@@ -536,6 +543,15 @@ public:
 			tMeshTrf->zStep = 0; if(pRad->nz > 1) tMeshTrf->zStep = (zEndNew - (tMeshTrf->zStart))/(pRad->nz - 1);
 
 			//OCTEST
+			//double x0 = (pRad->xStart)*a11 + (pRad->zStart)*a12 + k0*a13;
+			//double z0 = (pRad->xStart)*a21 + (pRad->zStart)*a22 + k0*a23;
+			//double x1 = xEndOld*a11 + zEndOld*a12 + k0*a13;
+			//double z1 = xEndOld*a21 + zEndOld*a22 + k0*a23;
+			//double x2 = (pRad->xStart)*a11 + zEndOld*a12 + k0*a13;
+			//double z2 = (pRad->xStart)*a21 + zEndOld*a22 + k0*a23;
+			//double x3 = xEndOld*a11 + (pRad->zStart)*a12 + k0*a13;
+			//double z3 = xEndOld*a21 + (pRad->zStart)*a22 + k0*a23;
+
 			//tMeshTrf->zStart = (pRad->zStart)*a22; //+ k0*a23;
 			//double zEndNew = zEndOld*a22; //+ k0*a23;
 			//END OCTEST
@@ -564,9 +580,222 @@ public:
 
 		if(pRad->ne == 1)
 		{
-			if(pMeshTrf->crossTermsAreLarge)
+			if(pMeshTrf->crossTermsAreLarge) //To test / debug this (OC21012021)!
 			{//do interpolation (flip is not required)
-				//ddddddddddddddddddddddddddddddd
+
+				//OC21122020
+				double &a11 = pMeshTrf->matrKLabRef[0][0], &a12 = pMeshTrf->matrKLabRef[0][1], &a13 =  pMeshTrf->matrKLabRef[0][2];
+				double &a21 = pMeshTrf->matrKLabRef[1][0], &a22 = pMeshTrf->matrKLabRef[1][1], &a23 =  pMeshTrf->matrKLabRef[1][2];
+				double detA = a11*a22 - a12*a21;
+				if(detA == 0) detA = 1e-50; //?
+				double inv_detA = 1./(a11*a22 - a12*a21);
+				double ai11 = inv_detA*a22, ai12 = -inv_detA*a12, ai21 = -inv_detA*a21, ai22 = inv_detA*a11;
+				double phEn = pRad->eStart;
+				double waveLength_m = 1.23984193009e-06/phEn;
+				double k0 = phEn/1.23984193009e-06;
+				double ai13_k0 = (-ai11*a13 - ai12*a23)*k0, ai23_k0 = (-ai21*a13 - ai22*a23)*k0;
+				double a13_k0 = a13*k0, a23_k0 = a23*k0;
+
+				double xStartOld = pRad->xStart, zStartOld = pRad->zStart;
+				double xStepOld = pRad->xStep, zStepOld = pRad->zStep;
+				long Nx = pRad->nx, Nz = pRad->nz; //OC21012024 (rolled back)
+				//long long Nx = pRad->nx, Nz = pRad->nz; //OC03082023
+				long Nx_mi_1 = Nx - 1, Nz_mi_1 = Nz - 1; //OC21012024 (rolled back)
+				//long long Nx_mi_1 = Nx - 1, Nz_mi_1 = Nz - 1; //OC03082023
+				double xEndOld = xStartOld + xStepOld*Nx_mi_1;
+				double zEndOld = zStartOld + zStepOld*Nz_mi_1;
+				double x0 = xStartOld*a11 + zStartOld*a12 + k0*a13;
+				double z0 = xStartOld*a21 + zStartOld*a22 + k0*a23;
+				double x1 = xEndOld*a11 + zEndOld*a12 + k0*a13;
+				double z1 = xEndOld*a21 + zEndOld*a22 + k0*a23;
+				double x2 = xStartOld*a11 + zEndOld*a12 + k0*a13;
+				double z2 = xStartOld*a21 + zEndOld*a22 + k0*a23;
+				double x3 = xEndOld*a11 + zStartOld*a12 + k0*a13;
+				double z3 = xEndOld*a21 + zStartOld*a22 + k0*a23;
+
+				double xNewStart = x0;
+				if(xNewStart > x1) xNewStart = x1;
+				if(xNewStart > x2) xNewStart = x2;
+				if(xNewStart > x3) xNewStart = x3;
+				double xNewEnd = x0;
+				if(xNewEnd < x1) xNewEnd = x1;
+				if(xNewEnd < x2) xNewEnd = x2;
+				if(xNewEnd < x3) xNewEnd = x3;
+				double xNewStep = (xNewEnd - xNewStart)/Nx_mi_1;
+
+				double zNewStart = z0;
+				if(zNewStart > z1) zNewStart = z1;
+				if(zNewStart > z2) zNewStart = z2;
+				if(zNewStart > z3) zNewStart = z3;
+				double zNewEnd = z0;
+				if(zNewEnd < z1) zNewEnd = z1;
+				if(zNewEnd < z2) zNewEnd = z2;
+				if(zNewEnd < z3) zNewEnd = z3;
+				double zNewStep = (zNewEnd - zNewStart)/Nz_mi_1;
+
+				TreatStronglyOscillatingTermIrregMeshTrf(*pRad, 'r', pMeshTrf->matrKLabRef); //, PolComp);
+
+				float *pEx = pRad->pBaseRadX;
+				float *pEz = pRad->pBaseRadZ;
+				long perX = 2;
+				//long perZ = perX*Nx;
+				long long perZ = perX*Nx; //OC03082023
+				char TreatPolCompX = pRad->pBaseRadX != 0;
+				char TreatPolCompZ = pRad->pBaseRadZ != 0;
+
+				float *pExNew=0, *pEzNew=0;
+				long long nTot = (pRad->ne)*Nx*Nz*2;
+				if(TreatPolCompX)
+				{
+					pExNew = new float[nTot];
+					if(pExNew == 0) return MEMORY_ALLOCATION_FAILURE;
+					float *tExNew = pExNew;
+					for(long long j=0; j<nTot; j++) *(tExNew++) = 0.;
+				}
+				if(TreatPolCompZ)
+				{
+					pEzNew = new float[nTot];
+					if(pEzNew == 0) return MEMORY_ALLOCATION_FAILURE;
+					float *tEzNew = pEzNew;
+					for(long long j=0; j<nTot; j++) *(tEzNew++) = 0.;
+				}
+
+				char ordInterp = 1; //1- four-point bi-linear; 2- 5-point bi-quadratic
+
+				double reEx, imEx, reEz, imEz, reAux, imAux, arI[5], Ix, Iz, corRat;
+				double z = zNewStart;
+				for(int iz=0; iz<Nz; iz++)
+				{
+					long long perZ_iz = perZ*iz;
+					double x = xNewStart;
+					for(int ix=0; ix<Nx; ix++)
+					{
+						long long ofstNew0 = perZ_iz + perX*ix;
+						double xOld = ai11*x + ai12*z + ai13_k0;
+						double zOld = ai21*x + ai22*z + ai23_k0;
+
+						if((zStartOld <= zOld) && (zOld <= zEndOld) && (xStartOld <= xOld) && (xOld <= xEndOld))
+						{//Do interpolation here: bi-linear interpolation of Re and Im parts with correction of Amplitude
+
+							if(ordInterp == 1)
+							{
+								int iz0 = (int)((zOld - zStartOld)/zStepOld); //OC21012024 (rolled back)
+								//long long iz0 = (long long)((zOld - zStartOld)/zStepOld); //OC03082023
+								if(iz0 < 0) iz0 = 0;
+								if(iz0 > Nz_mi_1) iz0 = Nz_mi_1;
+
+								int ix0 = (int)((xOld - xStartOld)/xStepOld); //OC21012024 (rolled back)
+								//long long ix0 = (long long)((xOld - xStartOld)/xStepOld); //OC03082023
+								if(ix0 < 0) ix0 = 0;
+								if(ix0 > Nx_mi_1) ix0 = Nx_mi_1;
+
+								double zOld0 = zStartOld + iz0*zStepOld;
+								double zOld1 = zOld0 + zStepOld;
+								double xOld0 = xStartOld + ix0*xStepOld;
+								double xOld1 = xOld0 + xStepOld;
+
+								double x00 = a11*xOld0 + a12*zOld0 + a13_k0;
+								double z00 = a21*xOld0 + a22*zOld0 + a23_k0;
+								double x10 = a11*xOld1 + a12*zOld0 + a13_k0 - x00; //?
+								double z10 = a21*xOld1 + a22*zOld0 + a23_k0 - z00;
+								double x01 = a11*xOld0 + a12*zOld1 + a13_k0 - x00;
+								double z01 = a21*xOld0 + a22*zOld1 + a23_k0 - z00;
+								double x11 = a11*xOld1 + a12*zOld1 + a13_k0 - x00;
+								double z11 = a21*xOld1 + a22*zOld1 + a23_k0 - z00;
+								double arXZ[] = {x10, z10, x01, z01, x11, z11};
+
+								long long perX_ix0 = perX*ix0;
+								long long perX_ix0p1 = perX*(ix0+1);
+								long long perZ_iz0 = perZ*iz0;
+								long long perZ_iz0p1 = perZ*(iz0+1);
+								
+								if(TreatPolCompX)
+								{
+									float *reEx00 = pEx + perX_ix0 + perZ_iz0;
+									float *reEx10 = pEx + perX_ix0p1 + perZ_iz0;
+									float *reEx01 = pEx + perX_ix0 + perZ_iz0p1;
+									float *reEx11 = pEx + perX_ix0p1 + perZ_iz0p1;
+									double arReEx[] = {*reEx00, *reEx10, *reEx01, *reEx11};
+									reEx = CGenMathInterp::Interp2dBiLinVar(x, z, arXZ, arReEx);
+									//bilinear interpolation on irregular mesh, for relative arguments, first point is x = 0, y = 0
+									//arXY is flat array of coordinates of 3 other points {x10, y10, x01, y01, x11, y11}
+									double arImEx[] = {*(reEx00+1), *(reEx10+1), *(reEx01+1), *(reEx11+1)};
+									imEx = CGenMathInterp::Interp2dBiLinVar(x, z, arXZ, arImEx);
+
+									if((reEx != 0.) || (imEx != 0.))
+									{
+										for(int i=0; i<4; i++) { reAux = arReEx[i]; imAux = arImEx[i]; arI[i] = reAux*reAux + imAux*imAux;}
+										Ix = CGenMathInterp::Interp2dBiLinVar(x, z, arXZ, arI);
+										if(Ix < 0.) Ix = 0.;
+										corRat = sqrt(Ix/(reEx*reEx + imEx*imEx));
+										*(pExNew + ofstNew0) = (float)(reEx*corRat);
+										*(pExNew + ofstNew0 + 1) = (float)(imEx*corRat);
+									}
+									else
+									{
+										*(pExNew + ofstNew0) = 0; *(pExNew + ofstNew0 + 1) = 0;
+									}
+								}
+								if(TreatPolCompZ)
+								{
+									float *reEz00 = pEz + perX_ix0 + perZ_iz0;
+									float *reEz10 = pEz + perX_ix0p1 + perZ_iz0;
+									float *reEz01 = pEz + perX_ix0 + perZ_iz0p1;
+									float *reEz11 = pEz + perX_ix0p1 + perZ_iz0p1;
+									double arReEz[] = {*reEz00, *reEz10, *reEz01, *reEz11};
+									reEz = CGenMathInterp::Interp2dBiLinVar(x, z, arXZ, arReEz);
+									double arImEz[] = {*(reEz00+1), *(reEz10+1), *(reEz01+1), *(reEz11+1)};
+									imEz = CGenMathInterp::Interp2dBiLinVar(x, z, arXZ, arImEz);
+
+									if((reEz != 0.) || (imEz != 0.))
+									{
+										for(int i=0; i<4; i++) { reAux = arReEz[i]; imAux = arImEz[i]; arI[i] = reAux*reAux + imAux*imAux;}
+										Iz = CGenMathInterp::Interp2dBiLinVar(x, z, arXZ, arI);
+										if(Iz < 0.) Iz = 0.;
+										corRat = sqrt(Iz/(reEz*reEz + imEz*imEz));
+										*(pEzNew + ofstNew0) = (float)(reEz*corRat);
+										*(pEzNew + ofstNew0 + 1) = (float)(imEz*corRat);
+									}
+									else
+									{
+										*(pEzNew + ofstNew0) = 0; *(pEzNew + ofstNew0 + 1) = 0;
+									}
+								}
+							}
+							//else if(ordInterp == 2) //To program, eventually
+							//{
+							//}
+						}
+						else
+						{
+							if(TreatPolCompX)
+							{
+								*(pExNew + ofstNew0) = 0; *(pExNew + ofstNew0 + 1) = 0;
+							}
+							if(TreatPolCompZ)
+							{
+								*(pEzNew + ofstNew0) = 0; *(pEzNew + ofstNew0 + 1) = 0;
+							}
+						}
+						x += xNewStep;
+					}
+					z += zNewStep;
+				}
+
+				if(TreatPolCompX)
+				{
+					float *tExNew = pExNew, *tEx = pEx;
+					for(long long j=0; j<nTot; j++) *(tEx++) = *(tExNew++);
+					delete[] pExNew;
+				}
+				if(TreatPolCompZ)
+				{
+					float *tEzNew = pEzNew, *tEz = pEz;
+					for(long long j=0; j<nTot; j++) *(tEz++) = *(tEzNew++);
+					delete[] pEzNew;
+				}
+
+				TreatStronglyOscillatingTermIrregMeshTrf(*pRad, 'a', pMeshTrf->matrKLabRef); //, PolComp);
 			}
 			else
 			{//simply change scale
@@ -691,8 +920,10 @@ public:
 					ar_xStartValuesInSlicesE = new double[pRad->ne];
 					double *t_ar_xStartValues = ar_xStartValuesInSlicesE;
 					srTOptCrystMeshTrf *tMeshTrf = pMeshTrf + 1;
-					long nx_mi_1 = pRad->nx - 1;
-					for(long ie=0; ie<(pRad->ne); ie++)
+					long nx_mi_1 = pRad->nx - 1; //OC21012024 (rolled back)
+					//long long nx_mi_1 = pRad->nx - 1; //OC03082023
+					for(long ie=0; ie<(pRad->ne); ie++) //OC21012024 (rolled back)
+					//for(long long ie=0; ie<(pRad->ne); ie++) //OC03082023
 					{
 						if(flipOverXtot) *(t_ar_xStartValues++) = (tMeshTrf->xStart) + (tMeshTrf->xStep)*nx_mi_1;
 						else *(t_ar_xStartValues++) = tMeshTrf->xStart;
@@ -704,8 +935,10 @@ public:
 					ar_zStartValuesInSlicesE = new double[pRad->ne];
 					double *t_ar_zStartValues = ar_zStartValuesInSlicesE;
 					srTOptCrystMeshTrf *tMeshTrf = pMeshTrf + 1;
-					long nz_mi_1 = pRad->nz - 1;
-					for(long ie=0; ie<(pRad->ne); ie++)
+					long nz_mi_1 = pRad->nz - 1; //OC21012024 (rolled back)
+					//long long nz_mi_1 = pRad->nz - 1; //OC03082023
+					for(long ie=0; ie<(pRad->ne); ie++) //OC21012024 (rolled back)
+					//for(long long ie=0; ie<(pRad->ne); ie++) //OC03082023
 					{
 						if(flipOverZtot) *(t_ar_zStartValues++) = (tMeshTrf->zStart) + (tMeshTrf->zStep)*nz_mi_1;
 						else *(t_ar_zStartValues++) = tMeshTrf->zStart;
@@ -722,7 +955,8 @@ public:
 		return 0;
 	}
 
-	int PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect) //virtual in srTGenOptElem
+	//int PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect) //virtual in srTGenOptElem
+	int PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect, void* pvGPU=0) //virtual in srTGenOptElem //HG01122023
 	{
 		m_eStartAux = pRadAccessData->eStart; m_eStepAux = pRadAccessData->eStep; m_ne = pRadAccessData->ne; //required for RadPointModifier
 
@@ -746,7 +980,8 @@ public:
 		}
 
 		//return PropagateRadiationMeth_0(pRadAccessData);
-		return PropagateRadiationSingleE_Meth_0(pRadAccessData, 0);
+		//return PropagateRadiationSingleE_Meth_0(pRadAccessData, 0);
+		return PropagateRadiationSingleE_Meth_0(pRadAccessData, 0, pvGPU); //HG01122023
 	}
 
 	//int PropagateRadiationMeth_0(srTSRWRadStructAccessData* pRadAccessData) //virtual in srTGenOptElem
@@ -756,7 +991,8 @@ public:
 
 	//int PropagateRadiationSingleE_Meth_0(srTSRWRadStructAccessData* pRadAccessData, srTSRWRadStructAccessData* pPrevRadAccessData, void* pBuf=0) //OC06092019
 	//OC01102019 (restored)
-	int PropagateRadiationSingleE_Meth_0(srTSRWRadStructAccessData* pRadAccessData, srTSRWRadStructAccessData* pPrevRadAccessData)
+	//int PropagateRadiationSingleE_Meth_0(srTSRWRadStructAccessData* pRadAccessData, srTSRWRadStructAccessData* pPrevRadAccessData)
+	int PropagateRadiationSingleE_Meth_0(srTSRWRadStructAccessData* pRadAccessData, srTSRWRadStructAccessData* pPrevRadAccessData, void* pvGPU) //HG01122023
 	{//It works for many photon energies too (as in the case of Drift)
 	 //The "in-place" processing involving FFT for many photon energies greatly improves efficiency of the code for Time-/Frequency-Dependent simulations for FEL and pulsed lasers.
 		int result;
@@ -790,7 +1026,8 @@ public:
 
 		srTOptCrystMeshTrf meshTrf;
 		m_pMeshTrf = &meshTrf;
-		int nMesh = 1;
+		int nMesh = 1; //OC21012024 (rolled back)
+		//long long nMesh = 1; //OC03082023
 		if(pRadAccessData->ne > 1) 
 		{
 			nMesh = pRadAccessData->ne + 1;
@@ -931,8 +1168,9 @@ public:
 		double bee = 1. / (1. + m_HXAi[1] / k0wXAi[1]);
 		
 		//OC02102019 stopped updating here.
+		//OC28112019 resumed the update below.
 		
-		//ARF03062019 suggestion:
+		//ARF03062019 suggestion: (//OC28112019: seems to be recalled later)
 		//double bee = 1./(1. + (m_HXAi_bee[1]*m_RXtLab[1][1] + m_HXAi_bee[2]*m_RXtLab[2][1])/k0wXAi[1]); //ARF03062019 change from: double bee = 1. / (1. + m_HXAi[1] / k0wXAi[1]);
 
 		double dotkH = k0wXAi[0] * m_HXAi[0] + k0wXAi[1] * m_HXAi[1] + k0wXAi[2] * m_HXAi[2];
@@ -953,53 +1191,70 @@ public:
 		complex<double> ph2C = aux_phC*del2C;
 
 		complex<double> DHsgC, Cph1C, Cph2C, D0trsC;
-		if(real(ph1C) > logDBMax) DHsgC = x2C;
-		else if(real(ph2C) > logDBMax) DHsgC = x1C;
-		else
+
+		if((m_uc == 1) || (m_uc == 2)) //OC28112021 (following the suggestion of //ARF, //IP on GitHUb, but without introducing the "m_ug" member variable)
 		{
-			Cph1C = exp(ph1C);
-			Cph2C = exp(ph2C);
-			DHsgC = x1C*x2C*(Cph2C - Cph1C)/(Cph2C*x2C - Cph1C*x1C);
-		}
-
-		//double re_ph1C = real(ph1C), re_ph2C = real(ph2C);
-		//if(re_ph1C > logDBMax) DHsgC = x2C;
-		//else if(re_ph2C > logDBMax) DHsgC = x1C;
-		//else
-		//{
-		//	if(re_ph1C < -logDBMax) 
-		//	{
-		//		Cph1C = complex<double>(0, 0);
-		//	}
-		//	else Cph1C = exp(ph1C);
-
-		//	if(re_ph2C < -logDBMax) 
-		//	{
-		//		Cph2C = complex<double>(0, 0);
-		//	}
-		//	else Cph2C = exp(ph2C);
-
-		//	if((re_ph1C < -logDBMax) && (re_ph2C < -logDBMax)) 
-		//	{
-		//		DHsgC = complex<double>(0, 0); //?
-		//	}
-		//	else DHsgC = x1C*x2C*(Cph2C - Cph1C)/(Cph2C*x2C - Cph1C*x1C);
-		//}
-
-		if(m_itrans == 1)
-		{
-			// calculate the complex reflectivity D0trsC of the transmitted beam. 
-			if(real(ph1C) > logDBMax)
-			{
-				Cph2C = exp(ph2C);
-				D0trsC = -Cph2C*(x2C - x1C)/x1C;
-			}
-			else if(real(ph2C) > logDBMax)
+			if(real(ph1C) > logDBMax) DHsgC = x2C;
+			else if(real(ph2C) > logDBMax) DHsgC = x1C;
+			else
 			{
 				Cph1C = exp(ph1C);
-				D0trsC = +Cph1C*(x2C - x1C)/x2C;
+				Cph2C = exp(ph2C);
+				DHsgC = x1C * x2C * (Cph2C - Cph1C) / (Cph2C * x2C - Cph1C * x1C);
 			}
-			else D0trsC = Cph1C*Cph2C*(x2C - x1C)/(Cph2C*x2C - Cph1C*x1C);
+
+			//double re_ph1C = real(ph1C), re_ph2C = real(ph2C);
+			//if(re_ph1C > logDBMax) DHsgC = x2C;
+			//else if(re_ph2C > logDBMax) DHsgC = x1C;
+			//else
+			//{
+			//	if(re_ph1C < -logDBMax) 
+			//	{
+			//		Cph1C = complex<double>(0, 0);
+			//	}
+			//	else Cph1C = exp(ph1C);
+
+			//	if(re_ph2C < -logDBMax) 
+			//	{
+			//		Cph2C = complex<double>(0, 0);
+			//	}
+			//	else Cph2C = exp(ph2C);
+
+			//	if((re_ph1C < -logDBMax) && (re_ph2C < -logDBMax)) 
+			//	{
+			//		DHsgC = complex<double>(0, 0); //?
+			//	}
+			//	else DHsgC = x1C*x2C*(Cph2C - Cph1C)/(Cph2C*x2C - Cph1C*x1C);
+			//}
+
+			if(m_itrans == 1)
+			{
+				// calculate the complex reflectivity D0trsC of the transmitted beam. 
+				if(real(ph1C) > logDBMax)
+				{
+					Cph2C = exp(ph2C);
+					D0trsC = -Cph2C * (x2C - x1C) / x1C;
+				}
+				else if(real(ph2C) > logDBMax)
+				{
+					Cph1C = exp(ph1C);
+					D0trsC = +Cph1C * (x2C - x1C) / x2C;
+				}
+				else D0trsC = Cph1C * Cph2C * (x2C - x1C) / (Cph2C * x2C - Cph1C * x1C);
+			}
+		}
+		else if((m_uc == 3) || (m_uc == 4)) //OC28112021 (following the suggestion of //ARF, //IP on GitHUb, but without introducing the "m_ug" member variable)
+		{// Laue cases ARF080519
+
+			Cph1C = exp(ph1C); //OC28112021 (following the suggestion of //ARF, //IP on GitHUb, adapted to the previous code for "if((m_uc == 1) || (m_uc == 2))")
+			Cph2C = exp(ph2C);
+			DHsgC = x1C * x2C * (Cph1C - Cph2C) / (x2C - x1C); // Laue Reflection
+
+			// Transmission
+			if(m_itrans == 1)
+			{
+				D0trsC = (Cph1C * x2C - Cph2C * x1C) / (x2C - x1C); // Laue Transmission
+			}
 		}
 
 		// Calculate the complex reflectivity DHpiC for pi polarization: 
@@ -1010,33 +1265,49 @@ public:
 		del2C = 0.5*(m_psi0c - zeeC - sqrqzC);
 		x1C = (-zeeC + sqrqzC) / (m_psimhc*m_cos2t);
 		x2C = (-zeeC - sqrqzC) / (m_psimhc*m_cos2t);
-		ph1C = 2.*pi*iC*k0Ai*del1C*(m_thicum*1.E+04) / gamma0;
-		ph2C = 2.*pi*iC*k0Ai*del2C*(m_thicum*1.E+04) / gamma0;
+		ph1C = 2.*pi*iC*k0Ai*del1C*(m_thicum*1.E+04)/gamma0;
+		ph2C = 2.*pi*iC*k0Ai*del2C*(m_thicum*1.E+04)/gamma0;
 
 		complex<double> DHpiC, D0trpC;
-		if(real(ph1C) > logDBMax) DHpiC = x2C;
-		else if(real(ph2C) > logDBMax) DHpiC = x1C;
-		else
-		{
-			Cph1C = exp(ph1C);
-			Cph2C = exp(ph2C);
-			DHpiC = x1C*x2C*(Cph2C - Cph1C)/(Cph2C*x2C - Cph1C*x1C);
-		}
 
-		if(m_itrans == 1)
+		if((m_uc == 1) || (m_uc == 2)) //OC28112021 (following the suggestion of //ARF, //IP on GitHUb, but without introducing the "m_ug" member variable)
 		{
-			// calculate the complex reflectivity D0trpC of the transmitted beam. 
-			if (real(ph1C) > logDBMax)
-			{
-				Cph2C = exp(ph2C);
-				D0trpC = -Cph2C*(x2C - x1C)/x1C;
-			}
-			else if (real(ph2C) > logDBMax)
+			if(real(ph1C) > logDBMax) DHpiC = x2C;
+			else if (real(ph2C) > logDBMax) DHpiC = x1C;
+			else
 			{
 				Cph1C = exp(ph1C);
-				D0trpC = +Cph1C*(x2C - x1C)/x2C;
+				Cph2C = exp(ph2C);
+				DHpiC = x1C * x2C * (Cph2C - Cph1C) / (Cph2C * x2C - Cph1C * x1C);
 			}
-			else D0trpC = Cph1C*Cph2C*(x2C - x1C)/(Cph2C*x2C - Cph1C*x1C);
+
+			if(m_itrans == 1)
+			{
+				// calculate the complex reflectivity D0trpC of the transmitted beam. 
+				if (real(ph1C) > logDBMax)
+				{
+					Cph2C = exp(ph2C);
+					D0trpC = -Cph2C * (x2C - x1C) / x1C;
+				}
+				else if (real(ph2C) > logDBMax)
+				{
+					Cph1C = exp(ph1C);
+					D0trpC = +Cph1C * (x2C - x1C) / x2C;
+				}
+				else D0trpC = Cph1C * Cph2C * (x2C - x1C) / (Cph2C * x2C - Cph1C * x1C);
+			}
+		}
+		else if((m_uc == 3) || (m_uc == 4)) //OC28112021 (following the suggestion of //ARF, //IP on GitHUb, but without introducing the "m_ug" member variable)
+		{// Laue cases ARF080519
+			Cph1C = exp(ph1C);
+			Cph2C = exp(ph2C);
+			DHpiC = x1C * x2C * (Cph1C - Cph2C) / (x2C - x1C); // Laue Reflection
+
+			// Transmission
+			if(m_itrans == 1)
+			{
+				D0trpC = (Cph1C * x2C - Cph2C * x1C) / (x2C - x1C); // Laue Transmission
+			}
 		}
 
 		// Calculate the diffracted amplitudes: 
@@ -1099,7 +1370,9 @@ public:
 		//*(EPtrs.pEzIm) = (float)(asymFact*Ehy.imag());
 
 		//OC05092016
-		if(m_uc == 1) //Bragg Reflection
+		//if(m_uc == 1) //Bragg Reflection
+		//OC28112021 (following the suggestion of //ARF, //IP on GitHUb)
+		if((m_uc == 1) || (m_uc == 3)) //Bragg or Laue Reflection 
 		{
 			complex<double> Ehx = sgH[0]*EHSPCs + piH[0]*EHSPCp;
 			complex<double> Ehy = sgH[1]*EHSPCs + piH[1]*EHSPCp;
@@ -1111,7 +1384,9 @@ public:
 			*(EPtrs.pEzRe) = (float)(asymFact*Ehy.real());
 			*(EPtrs.pEzIm) = (float)(asymFact*Ehy.imag());
 		}
-		else if(m_uc == 2) //Bragg Transmission (i.e. Forward Bragg Diffraction (FBD))
+		//else if(m_uc == 2) //Bragg Transmission (i.e. Forward Bragg Diffraction (FBD))
+		//OC28112021 (following the suggestion of //ARF, //IP on GitHUb)
+		else if((m_uc == 2) || (m_uc == 4)) //Bragg Transmission (i.e. Forward Bragg Diffraction (FBD)) or Laue Transmission
 		{
 			//DEBUG
 			//complex<double> DHsgC_p_D0trsC = DHsgC + D0trsC;

@@ -15,7 +15,6 @@
 #define __SROPTZP_H
 
 #include "sroptfoc.h"
-#include "sroptang.h"
 
 //*************************************************************************
 
@@ -34,7 +33,6 @@ class srTZonePlate : public srTFocusingElem {
 	double m_aModH, m_bModH, m_cModH, m_dModH;
 	bool m_ModH_IsDefined;
 	double m_lamb0e2; //OC22062019
-        double thetax = 0.1/360*3.1415926, thetaz = 0.0; // ANHE02032023
 
 public:
 
@@ -101,96 +99,10 @@ public:
 	}
 	srTZonePlate() {}
 
-	void setAngle(double x, double z) { thetax = x; thetaz = z; }
-
-	inline void shiftPhase(float * pEx, float *pEz, double phi) const {
-	  double cs = cos(phi), sn = sin(phi);
-	  double exre = pEx[0] * cs - pEx[1] * sn;
-	  double exim = pEx[0] * sn + pEx[1] * cs;
-	  pEx[0] = exre; pEx[1] = exim;
-
-	  double ezre = pEz[0] * cs - pEz[1] * sn;
-	  double ezim = pEz[0] * sn + pEz[1] * cs;
-	  pEz[0] = ezre; pEz[1] = ezim;
-	}
-	
-	double addPhaseForTilt(srTSRWRadStructAccessData* pRadAccessData, double angx) const {
-            double maxphase = 0.0;
-	    auto pEx = pRadAccessData->pBaseRadX;
-	    auto pEz = pRadAccessData->pBaseRadZ;
-	    const double DZ = pRadAccessData->zStep;
-	    const double DX = pRadAccessData->xStep;
-	    double z = pRadAccessData->zStart;
-	    for (int iz = 0; iz < pRadAccessData->nz; iz++) {
-	      double x = pRadAccessData->xStart;
-	      for (int ix = 0; ix < pRadAccessData->nx; ix++)	{
-		double r = (x < 0 ? -x : x);
-		// 4th term, x > 0 and x < 0 have different sign (r/x)
-		double e = pRadAccessData->eStart;
-	        for (int ie = 0; ie < pRadAccessData->ne; ie++) {
-		  double lam =  3.1415926535898/(e*2.53384080189E+06);
-		  double f = (RnMax*RnMax - Nzones*Nzones*lam*lam/4) / (Nzones * lam);
-		  double opd = 0; // r*r/(2*f) - r*r*r*r/(8*f*f*f);
-		  opd += r*r*r*angx/(2*f*f) + (r/x) * 3*r*r*angx*angx/(4*f);
-		  if (angx == 0.0) opd = 0.0; // ANHE (also x could be 0.0)
-		  double kz =  (5.06773065e+06)*e * opd;
-		  
-		  shiftPhase(pEx, pEz, kz);
-		  
-		  e += pRadAccessData->eStep;
-		  pEx += 2;
-		  pEz += 2;
-	        }
-		x += DX;
-	      }
-	      z += DZ;
-	    }
-
-	    return maxphase;
-	};
-
 	//int PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, int MethNo, srTRadResizeVect& ResBeforeAndAfterVect)
-	int PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
+	//int PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
+	int PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect, void* pvGPU=0) //HG04122023
 	{
-		int nslice = 1;
-		fprintf(stderr, "initial tilt angle %g %g\n", thetax ,thetaz);
-		FILE *fp = fopen("zpangle.txt", "r");
-		if (fp) {
-		    fscanf(fp, "%lf %lf %d", &thetax, &thetaz, &nslice);
-		    fclose(fp);
-		    fprintf(stderr, "ZP has tilt angle %g %g (read from zpangle.txt)\n", thetax, thetaz);
-                } else {
-		    thetax = thetaz = 0.0;
-		    nslice = 1;
-		    fprintf(stderr, "no zpangle.txt, set thetax=%g thetaz= %g nslice= %d\n", thetax, thetaz, nslice);
-		}
-		if (nslice < 1 || nslice > 100) {
-			fprintf(stderr, "invalid nslice found, reset nslice= 1\n");
-			nslice = 1;
-		}
-
-
-		{
-		    double angx = thetax, x = RnMax, r = RnMax;
-		    double e = 1000;
-		    double lam =  3.1415926535898/(e*2.53384080189E+06);
-                    double f = (RnMax*RnMax - Nzones*Nzones*lam*lam/4) / (Nzones * lam);
-                    double opd = 0; // r*r/(2*f) - r*r*r*r/(8*f*f*f);
-		    fprintf(stderr, "lam= %g f= %g opd1= %g ", lam, f, opd);
-                    opd += r*r*r*angx/(2*f*f) + (r/x) * 3*r*r*angx*angx/(4*f);
-                    double kz =  (5.06773065e+06)*e * opd;
-                    fprintf(stderr, "opd2= %g kz= %g\n", opd, kz);
-		}
-
-		addPhaseForTilt(pRadAccessData, thetax);
-  
-		/*
-	        srTOptAngle inter_angle1(thetax, thetaz);
-		 if (int result = inter_angle1.PropagateRadiation(pRadAccessData, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
-                    fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
-                    return result;
-		    }*/
-		
 		//if(ParPrecWfrPropag.AnalTreatment == 1)
 		//{// Treating linear terms analytically
 			pRadAccessData->CheckAndSubtractPhaseTermsLin(TransvCenPoint.x, TransvCenPoint.y);
@@ -200,39 +112,29 @@ public:
 		
 		int result = 0;
 
-		Thickness /= nslice;
-		for (int i = 1; i <= nslice; ++i) {
-		    fprintf(stderr, "ZP slice %d/%d thickness= %g\n", i, nslice, Thickness);
-
-		    if(MethNo == 0) result = PropagateRadiationMeth_0(pRadAccessData);
-		    //else return PropagateRadiationMeth_2(pRadAccessData, ResBeforeAndAfterVect);
-		    else result = PropagateRadiationMeth_2(pRadAccessData, ParPrecWfrPropag, ResBeforeAndAfterVect);
-                }
-		Thickness *= nslice;
-		fprintf(stderr, "restore ZP Thickness to %g\n", Thickness);
+		//if(MethNo == 0) result = PropagateRadiationMeth_0(pRadAccessData);
+		if(MethNo == 0) result = PropagateRadiationMeth_0(pRadAccessData, pvGPU); //HG04122023
+		//else return PropagateRadiationMeth_2(pRadAccessData, ResBeforeAndAfterVect);
+		else result = PropagateRadiationMeth_2(pRadAccessData, ParPrecWfrPropag, ResBeforeAndAfterVect);
 
 		//if(ParPrecWfrPropag.AnalTreatment == 1)
 		//{// Treating linear terms analytically
 			if(!ParPrecWfrPropag.DoNotResetAnalTreatTermsAfterProp) pRadAccessData->CheckAndResetPhaseTermsLin();
 		//}
 
-		/*srTOptAngle inter_angle2(-thetax, -thetaz);
-                if (int result = inter_angle2.PropagateRadiation(pRadAccessData, ParPrecWfrPropag, ResBeforeAndAfterVect)) {
-                    fprintf(stderr, "ERROR %d: %s", result, __FUNCTION__);
-                    return result;
-		}*/
-
-		fflush(stdout);
 		return result;
 	}
 
 	//int PropagateRadiationSimple(srTSRWRadStructAccessData* pRadAccessData, void* pBuf=0) //OC06092019
 	//OC01102019 (restored)
-	int PropagateRadiationSimple(srTSRWRadStructAccessData* pRadAccessData)
+	//int PropagateRadiationSimple(srTSRWRadStructAccessData* pRadAccessData)
+	int PropagateRadiationSimple(srTSRWRadStructAccessData* pRadAccessData, void* pvGPU=0) //HG04122023
 	{
 		int result;
-		if(pRadAccessData->Pres != 0) if(result = SetRadRepres(pRadAccessData, 0)) return result;
-		if(result = TraverseRadZXE(pRadAccessData)) return result;
+		//if(pRadAccessData->Pres != 0) if(result = SetRadRepres(pRadAccessData, 0)) return result;
+		if(pRadAccessData->Pres != 0) if(result = SetRadRepres(pRadAccessData, 0, 0, 0, pvGPU)) return result; //HG04122023
+		//if(result = TraverseRadZXE(pRadAccessData)) return result;
+		if(result = TraverseRadZXE(pRadAccessData, 0, 0, pvGPU)) return result; //HG04122023
 		return 0;
 	}
   	int PropagateRadiationSimple1D(srTRadSect1D* pSect1D)
@@ -245,7 +147,15 @@ public:
 
 	int PropagateRadMoments(srTSRWRadStructAccessData* pRadAccessData, srTMomentsRatios* MomRatArray)
 	{
-		SetupFocalDistForPhotonEnergy(pRadAccessData->eStart);
+		//OC10032024
+		double eHalfRange = 0.;
+		if(pRadAccessData->ne > 1)
+		{
+			eHalfRange = 0.5*(pRadAccessData->eStep)*(pRadAccessData->ne - 1);
+		}
+
+		SetupFocalDistForPhotonEnergy(pRadAccessData->eStart + eHalfRange); //OC10032024
+		//SetupFocalDistForPhotonEnergy(pRadAccessData->eStart);
 		return srTFocusingElem::PropagateRadMoments(pRadAccessData, MomRatArray);
 	}
 
@@ -254,9 +164,10 @@ public:
         FocDistX = FocDistZ = 1.E+23;
 		if(ePh <= 0.) return;
 
-		//double Wavelength_m = (1.239842E-06)/ePh; // assuming ePh in eV
-		//FocDistX = RnMax*RnMax/(Nzones*Wavelength_m); 
-		//FocDistZ = FocDistX;
+		//OC10032024 (uncommented the following)
+		double Wavelength_m = (1.239842E-06)/ePh; // assuming ePh in eV
+		FocDistX = RnMax*RnMax/(Nzones*Wavelength_m); 
+		FocDistZ = FocDistX;
 	}
 
 	void RadPointModifier(srTEXZ& EXZ, srTEFieldPtrs& EPtrs, void* pBufVars=0) //OC29082019

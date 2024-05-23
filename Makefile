@@ -9,20 +9,25 @@
 # Updated by Maksim Rakitin (NSLS-II, BNL) on May 2, 2016.
 
 root_dir = $(realpath .)
-env_dir = $(root_dir)/env
 ext_dir = $(root_dir)/ext_lib
 gcc_dir = $(root_dir)/cpp/gcc
 py_dir = $(root_dir)/cpp/py
 fftw2_version = fftw-2.1.5
 fftw2_dir = $(fftw2_version)
-fftw2_file = $(fftw2_version).tar.gz
+fftw2_file = fftw/$(fftw2_version).tar.gz
 fftw3_version = fftw-3.3.8
 fftw3_dir = $(fftw3_version)
-fftw3_file = $(fftw3_version).tar.gz
+fftw3_file = fftw3/$(fftw3_version).tar.gz
 log_fftw = /dev/null
-examples_dir = $(env_dir)/work/srw_python
+examples_dir = env/python/srwpy/examples
 #example10_data_dir = $(examples_dir)/data_example_10
 export MODE ?= 0
+
+#HG20042024
+ifeq ($(MODE), cuda)
+export CUDA_PATH ?= /usr/local/cuda
+export CUDA_MATHLIBS_PATH ?= /usr/local/cuda
+endif
 
 nofftw: core pylib
 
@@ -76,3 +81,4 @@ clean:
 	if [ -d $(root_dir)/.git ]; then rm -f $(examples_dir)/srwlpy*.so && (git checkout $(examples_dir)/srwlpy*.so 2>/dev/null || :); fi;
 
 .PHONY: all clean core fftw nofftw pylib
+

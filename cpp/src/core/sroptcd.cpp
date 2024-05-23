@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "sroptcd.h"
+#include "sroptelm.h"
 #include "sroptdrf.h"
 #include "gmfft.h"
 #include "sroptang.h"
@@ -30,7 +31,7 @@ using namespace std;
 #define DEBUG_ZPD 1  // No output of the debug information when DEBUG_ZPD=0 
 
 template<class T>
-constexpr const T& clamp(const T& v, const T& lo, const T& hi)
+constexpr const T myclamp(T v, T lo, T hi)
 {
     return (v < lo ? lo : (v > hi ? hi : v));
 }
@@ -210,10 +211,10 @@ void copy_sub_cell(float* pdst, const float* psrc, int nz, int nx, int ne, int i
     }
 #endif
 
-    iz0 = clamp(iz0, 0, nz);
-    ix0 = clamp(ix0, 0, nx);
-    iz1 = clamp(iz1, 0, nz);
-    ix1 = clamp(ix1, 0, nx);
+    iz0 = myclamp(iz0, 0, nz);
+    ix0 = myclamp(ix0, 0, nx);
+    iz1 = myclamp(iz1, 0, nz);
+    ix1 = myclamp(ix1, 0, nx);
     const long long SZZFULL = nx * ne * 2;
     const long long SZ = (ix1 - ix0) * ne * 2;
     for (int iz = iz0; iz < iz1; ++iz) {
@@ -430,6 +431,8 @@ void treat_phase_shift(srTSRWRadStructAccessData* pRadAccessData, double phase)
     long long PerX = pRadAccessData->ne << 1;
     long long PerZ = PerX * pRadAccessData->nx;
 
+    srTGenOptElem gelem;
+
     // srTGenOptElem::TreatPhaseShift(srTEFieldPtrs& EPtrs, double PhShift)
     for (int iz = 0; iz < pRadAccessData->nz; iz++)
     {
@@ -460,7 +463,7 @@ void treat_phase_shift(srTSRWRadStructAccessData* pRadAccessData, double phase)
                 // RadPointModifier(EXZ, EFieldPtrs, pBufVars); //OC29082019
                 //RadPointModifier(EXZ, EFieldPtrs);
                 double twoPi_d_Lambda = (5.06773065e+06) * EXZ.e;
-                srTGenOptElem::TreatPhaseShift(EFieldPtrs, phase * twoPi_d_Lambda);
+                gelem.TreatPhaseShift(EFieldPtrs, phase * twoPi_d_Lambda);
 
                 iePerE += 2;
                 EXZ.e += pRadAccessData->eStep;
@@ -829,7 +832,7 @@ int srTCombinedDrift::PropagateRad2(srTSRWRadStructAccessData* pRadAccessData, s
 }
 
 
-int srTCombinedDrift::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect)
+int srTCombinedDrift::PropagateRadiation(srTSRWRadStructAccessData* pRadAccessData, srTParPrecWfrPropag& ParPrecWfrPropag, srTRadResizeVect& ResBeforeAndAfterVect, void*)
 {
     assert(nzdiv > 0 && nxdiv > 0);
     /*if (crsz[0] == 5) { // method = 2x2 each has padding to include (0.0, 0.0)

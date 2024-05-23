@@ -37,7 +37,8 @@ double srTGenOptElem::CheckMemoryAvailable()
 
 //int srTGenOptElem::PropagateRadiationMeth_0(srTSRWRadStructAccessData* pRadAccessData, void* pBuf) //OC06092019
 //OC01102019 (restored)
-int srTGenOptElem::PropagateRadiationMeth_0(srTSRWRadStructAccessData* pRadAccessData) 
+//int srTGenOptElem::PropagateRadiationMeth_0(srTSRWRadStructAccessData* pRadAccessData) 
+int srTGenOptElem::PropagateRadiationMeth_0(srTSRWRadStructAccessData* pRadAccessData, void *pvGPU) //HG30112023
 {//Moved from derived classes: loops over E, calls derived PropagateRadiationSingleE_Meth_0
  //This propagation method doesn't allow for true wavefront "resizing/resampling" 
  //(which results in changing numbers of points) in "slices" vs photon energy.
@@ -115,7 +116,8 @@ int srTGenOptElem::PropagateRadiationMeth_0(srTSRWRadStructAccessData* pRadAcces
 
 		//if(result = PropagateRadiationSingleE_Meth_0(pRadDataSingleE, pPrevRadDataSingleE, pBuf)) return result; //from derived classes
 		//OC01102019 (restored)
-		if(result = PropagateRadiationSingleE_Meth_0(pRadDataSingleE, pPrevRadDataSingleE)) return result; //from derived classes
+		//if(result = PropagateRadiationSingleE_Meth_0(pRadDataSingleE, pPrevRadDataSingleE)) return result; //from derived classes
+		if(result = PropagateRadiationSingleE_Meth_0(pRadDataSingleE, pPrevRadDataSingleE, pvGPU)) return result; //from derived classes //HG12012024
 
 		if(pRadDataSingleE != pRadAccessData)
 		{
@@ -152,7 +154,8 @@ int srTGenOptElem::PropagateRadiationMeth_0(srTSRWRadStructAccessData* pRadAcces
 	{
 		//SY: nothing more is actually needed in this case
 		
-		return PropagateRadiationSingleE_Meth_0(pRadAccessData, 0); //OC01102019 (restored) //from derived classes
+		return PropagateRadiationSingleE_Meth_0(pRadAccessData, 0, pvGPU); //OC17022024
+		//return PropagateRadiationSingleE_Meth_0(pRadAccessData, 0); //OC01102019 (restored) //from derived classes
 		//return PropagateRadiationSingleE_Meth_0(pRadAccessData, 0, pBuf); //OC06092019
 
 		//OC31102018: added by SY (for profiling?) at parallelizing SRW via OpenMP
@@ -183,9 +186,17 @@ int srTGenOptElem::PropagateRadiationMeth_0(srTSRWRadStructAccessData* pRadAcces
 
 	//SY: return outside of parallel regions is not allowed - we do it outside
 
-	int* results = new int[neOrig];
-	if(results == 0) return MEMORY_ALLOCATION_FAILURE;
-	for(int ie = 0; ie < neOrig; ie++) results[ie] = 0;
+	//int* results = new int[neOrig];
+	//if(results == 0) return MEMORY_ALLOCATION_FAILURE;
+	//for(int ie = 0; ie < neOrig; ie++) results[ie] = 0;
+	//OC28112021 (following the suggestion of SY made on GutHub, replaced the above with the lines below)
+	int* single_results = new int[neOrig];
+	if (single_results == 0) return MEMORY_ALLOCATION_FAILURE;
+	int max_threads = omp_get_max_threads();
+	int* thread_results = new int[max_threads];
+	if (thread_results == 0) return MEMORY_ALLOCATION_FAILURE;
+	for (int ie = 0; ie < neOrig; ie++) single_results[ie] = 0;
+	for (int tn = 0; tn < max_threads; tn++) thread_results[tn] = 0;
 
 	//OC31102018: added by SY (for profiling?) at parallelizing SRW via OpenMP
 	//srwlPrintTime(": PropagateRadiationMeth_0 : before cycle",&start);
@@ -201,15 +212,23 @@ int srTGenOptElem::PropagateRadiationMeth_0(srTSRWRadStructAccessData* pRadAcces
 	{
 		int threadNum = omp_get_thread_num();
 		srTSRWRadStructAccessData *pRadDataSingleE = 0;
-		results[threadNum] = SetupNewRadStructFromSliceConstE(pRadAccessData, -1, pRadDataSingleE);
+		//results[threadNum] = SetupNewRadStructFromSliceConstE(pRadAccessData, -1, pRadDataSingleE);
+		//OC28112021 (following the suggestion of SY made on GutHub, replaced the above with the line below)
+		thread_results[threadNum] = SetupNewRadStructFromSliceConstE(pRadAccessData, -1, pRadDataSingleE);
+
 		//allocates new pRadDataSingleE !
-		if(!results[threadNum])
+		//if(!results[threadNum])
+		//OC28112021 (following the suggestion of SY made on GutHub, replaced the abovce with the line below)
+		if(!thread_results[threadNum])
 		{
 			#pragma omp for
 			for(int ie=0; ie<neOrig; ie++)
 			{
 				gridParamWereModif[ie] = false;
-				if(results[ie] = ExtractRadSliceConstE(pRadAccessData, ie, pRadDataSingleE->pBaseRadX, pRadDataSingleE->pBaseRadZ)) continue;
+				//if(results[ie] = ExtractRadSliceConstE(pRadAccessData, ie, pRadDataSingleE->pBaseRadX, pRadDataSingleE->pBaseRadZ)) continue;
+				//OC28112021 (following the suggestion of SY made on GutHub, replaced the above with the line below)
+				if(single_results[ie] = ExtractRadSliceConstE(pRadAccessData, ie, pRadDataSingleE->pBaseRadX, pRadDataSingleE->pBaseRadZ)) continue;
+
 				pRadDataSingleE->eStart = pRadAccessData->eStart + ie*pRadAccessData->eStep;
 				long OffsetMom = AmOfMoments*ie;
 				pRadDataSingleE->pMomX = pRadAccessData->pMomX + OffsetMom;
@@ -231,7 +250,10 @@ int srTGenOptElem::PropagateRadiationMeth_0(srTSRWRadStructAccessData* pRadAcces
 
 				if(pPrevRadDataSingleE != 0)
 				{
-					if(results[ie] = ExtractRadSliceConstE(pRadAccessData, ie, pPrevRadDataSingleE->pBaseRadX, pPrevRadDataSingleE->pBaseRadZ, true)) continue; //OC120908
+					//if(results[ie] = ExtractRadSliceConstE(pRadAccessData, ie, pPrevRadDataSingleE->pBaseRadX, pPrevRadDataSingleE->pBaseRadZ, true)) continue; //OC120908
+					//OC28112021 (following the suggestion of SY made on GutHub, replaced the above with the line below)
+					if(single_results[ie] = ExtractRadSliceConstE(pRadAccessData, ie, pPrevRadDataSingleE->pBaseRadX, pPrevRadDataSingleE->pBaseRadZ, true)) continue;
+
 					pPrevRadDataSingleE->eStart = pRadDataSingleE->eStart;
 					pPrevRadDataSingleE->pMomX = pRadDataSingleE->pMomX;
 					pPrevRadDataSingleE->pMomZ = pRadDataSingleE->pMomZ;
@@ -239,9 +261,14 @@ int srTGenOptElem::PropagateRadiationMeth_0(srTSRWRadStructAccessData* pRadAcces
 
 				//if(results[ie] = PropagateRadiationSingleE_Meth_0(pRadDataSingleE, pPrevRadDataSingleE, pBuf)) continue; //OC06092019
 				//OC01102019 (restored)
-				if(results[ie] = PropagateRadiationSingleE_Meth_0(pRadDataSingleE, pPrevRadDataSingleE)) continue; //from derived classes
+				//if(results[ie] = PropagateRadiationSingleE_Meth_0(pRadDataSingleE, pPrevRadDataSingleE)) continue; //from derived classes
+				//OC28112021 (following the suggestion of SY made on GutHub, replaced the above with the line below)
+				//if(single_results[ie] = PropagateRadiationSingleE_Meth_0(pRadDataSingleE, pPrevRadDataSingleE)) continue; //from derived classes
+				if(single_results[ie] = PropagateRadiationSingleE_Meth_0(pRadDataSingleE, pPrevRadDataSingleE, pvGPU)) continue; //OC17022024 //from derived classes
 
-				if(results[ie] = UpdateGenRadStructSliceConstE_Meth_0(pRadDataSingleE, ie, pRadAccessData, 1)) continue;
+				//if(results[ie] = UpdateGenRadStructSliceConstE_Meth_0(pRadDataSingleE, ie, pRadAccessData, 1)) continue;
+				//OC28112021 (following the suggestion of SY made on GutHub, replaced the above with the line below)
+				if(single_results[ie] = UpdateGenRadStructSliceConstE_Meth_0(pRadDataSingleE, ie, pRadAccessData, 1)) continue;
 				//the above doesn't change the transverse grid parameters in *pRadAccessData
 
 				//vRadSlices.push_back(*pRadDataSingleE); //this automatically calls destructor, which can eventually delete "emulated" structs!
@@ -259,8 +286,16 @@ int srTGenOptElem::PropagateRadiationMeth_0(srTSRWRadStructAccessData* pRadAcces
 		if(pRadDataSingleE != 0) delete pRadDataSingleE;
 	}
 
-	for(int ie = 0; ie < neOrig; ie++) if(results[ie]) return results[ie];
-	delete[]  results;
+	//for(int ie = 0; ie < neOrig; ie++) if(results[ie]) return results[ie];
+	//delete[]  results;
+	//OC28112021 (following the suggestion of SY made on GutHub, replaced the above with the lines below)
+	// check results, free memory, exit if there was error
+	result = 0;
+	for(int ie = 0; ie < neOrig; ie++) if(single_results[ie]) result = single_results[ie];
+	for(int tn = 0; tn < max_threads; tn++) if(thread_results[tn]) result = thread_results[tn];
+	delete[]  single_results;
+	delete[]  thread_results;
+	if(result) return result;
 
 	//OC31102018: added by SY (for profiling?) at parallelizing SRW via OpenMP
 	//char str[256];

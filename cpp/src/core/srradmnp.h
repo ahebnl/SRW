@@ -45,6 +45,10 @@ class srTRadGenManip {
 // Various manipulations with computed Radiation
 	bool EhOK, EvOK; //OC111111
 
+	//bool m_useIndE; //OC27022021
+	//unsigned long *m_arIndEforCSD; //OC27022021 (look-up table for indexes of Electric Field for calculating 4D CSD)
+	//unsigned long long m_lenArIndEforCSD; //OC27022021
+
 public:
 	//srTSRWRadStructAccessData RadAccessData;
 	CHGenObj hRadAccessData;
@@ -62,13 +66,27 @@ public:
 		srTSRWRadStructAccessData& RadAccessData = *((srTSRWRadStructAccessData*)(hRadAccessData.ptr()));
 		EhOK = (RadAccessData.pBaseRadX != 0);
 		EvOK = (RadAccessData.pBaseRadZ != 0);
+
+		//m_useIndE = true; //OC27022021 (to change as necessary)
+		//m_arIndEforCSD = 0; //OC27022021
+		//m_lenArIndEforCSD = 0; //OC27022021
 	}
 	srTRadGenManip() 
 	{
 		EhOK = EvOK = false; //OC111111
-	}
 
-	void ExtractRadiation(int PolarizCompon, int Int_or_Phase, int SectID, int TransvPres, double e, double x, double z, char* pData, double* pMeth=0, srTTrjDat* pTrjDat=0) //OC23022020
+		//m_useIndE = true; //OC27022021 (to change as necessary)
+		//m_arIndEforCSD = 0; //OC27022021
+		//m_lenArIndEforCSD = 0;
+	}
+	//~srTRadGenManip() //OC27022021
+	//{
+	//	if(m_arIndEforCSD != 0) delete[] m_arIndEforCSD;
+	//}
+
+	void ExtractRadiation(int PolarizCompon, int Int_or_Phase, int SectID, int TransvPres, double e, double x, double z, char* pData, double* pMeth=0, srTTrjDat* pTrjDat=0, void* pvGPU=0) //OC23022020 HG30112023
+	//void ExtractRadiation(int PolarizCompon, int Int_or_Phase, int SectID, int TransvPres, double e, double x, double z, char* pData, double* pMeth=0, srTTrjDat* pTrjDat=0) //OC23022020
+	//void ExtractRadiation(int PolarizCompon, int Int_or_Phase, int SectID, int TransvPres, double e, double x, double z, char* pData, double* pMeth=0, srTTrjDat* pTrjDat=0, gpuUsageArg* pGpuUsage=0) //OC23022020 Himanshu?
 	//void ExtractRadiation(int PolarizCompon, int Int_or_Phase, int SectID, int TransvPres, double e, double x, double z, char* pData, double* pMeth=0) //OC16122019
 	//void ExtractRadiation(int PolarizCompon, int Int_or_Phase, int SectID, int TransvPres, double e, double x, double z, char* pData, int* pMeth=0) //OC13122019
 	//void ExtractRadiation(int PolarizCompon, int Int_or_Phase, int SectID, int TransvPres, double e, double x, double z, char* pData);
@@ -86,7 +104,9 @@ public:
 
 		int res;
 		if(TransvPres != RadAccessData.Pres)
-			if(res = GenOptElem.SetRadRepres(&RadAccessData, char(TransvPres))) throw res;
+			if(res = GenOptElem.SetRadRepres(&RadAccessData, char(TransvPres), 0, 0, pvGPU)) throw res; //HG30112023
+			//if(res = GenOptElem.SetRadRepres(&RadAccessData, char(TransvPres), 0, 0)) throw res;
+			//if(res = GenOptElem.SetRadRepres(&RadAccessData, char(TransvPres), 0, 0, pGpuUsage)) throw res; //Himanshu?
 
 		if(RadExtract.Int_or_Phase == 1)
 		{//1- Multi-Elec Intensity
@@ -102,7 +122,9 @@ public:
 		}
 		else if(RadExtract.Int_or_Phase == 8) //OC06092018
 		{
-			if(res = ExtractSingleElecMutualIntensity(RadExtract)) throw res;
+			if(res = ExtractSingleElecMutualIntensity(RadExtract, pvGPU)) throw res; //HG30112023
+			//if(res = ExtractSingleElecMutualIntensity(RadExtract)) throw res;
+			//if(res = ExtractSingleElecMutualIntensity(RadExtract, pGpuUsage)) throw res; //Himanshu?
 		}
 		//else if(RadExtract.Int_or_Phase == 9) //OC23022020 (under development - OC23032020)
 		//{
@@ -110,7 +132,9 @@ public:
 		//}
 		else
 		{
-			if(res = ExtractSingleElecIntensity(RadExtract)) throw res;
+			if(res = ExtractSingleElecIntensity(RadExtract, pvGPU)) throw res; //HG30112023
+			//if(res = ExtractSingleElecIntensity(RadExtract)) throw res;
+			//if(res = ExtractSingleElecIntensity(RadExtract, pGpuUsage)) throw res; //Himanshu?
 		}
 
 		//OCTEST17082019
@@ -162,20 +186,26 @@ public:
 		return 0;
 	}
 
-	int ExtractSingleElecIntensity(srTRadExtract& RadExtract)
+	int ExtractSingleElecIntensity(srTRadExtract& RadExtract, void* pvGPU=0) //HG30112023
+	//int ExtractSingleElecIntensity(srTRadExtract& RadExtract) //, gpuUsageArg *pGpuUsage=0)
+	//int ExtractSingleElecIntensity(srTRadExtract& RadExtract, gpuUsageArg *pGpuUsage=0) //Himanshu?
 	{
 		if(RadExtract.PlotType == 0) return ExtractSingleElecIntensity1DvsE(RadExtract);
 		else if(RadExtract.PlotType == 1) return ExtractSingleElecIntensity1DvsX(RadExtract);
 		else if(RadExtract.PlotType == 2) return ExtractSingleElecIntensity1DvsZ(RadExtract);
-		else if(RadExtract.PlotType == 3) return ExtractSingleElecIntensity2DvsXZ(RadExtract);
+		else if(RadExtract.PlotType == 3) return ExtractSingleElecIntensity2DvsXZ(RadExtract, pvGPU); //HG30112023
+		//else if(RadExtract.PlotType == 3) return ExtractSingleElecIntensity2DvsXZ(RadExtract);
+		//else if(RadExtract.PlotType == 3) return ExtractSingleElecIntensity2DvsXZ(RadExtract, pGpuUsage); //Himanshu?
 		else if(RadExtract.PlotType == 4) return ExtractSingleElecIntensity2DvsEX(RadExtract);
 		else if(RadExtract.PlotType == 5) return ExtractSingleElecIntensity2DvsEZ(RadExtract);
 		else return ExtractSingleElecIntensity3D(RadExtract);
 	}
 
-	int ExtractSingleElecMutualIntensity(srTRadExtract& RadExtract) 
+	int ExtractSingleElecMutualIntensity(srTRadExtract& RadExtract, void* pvGPU=0) //HG24042023 Added GPU usage parameter
+	//int ExtractSingleElecMutualIntensity(srTRadExtract& RadExtract)
+	//int ExtractSingleElecMutualIntensity(srTRadExtract& RadExtract, gpuUsageArg *pGpuUsage=0) //HG24042023 Added GPU usage parameter
 	{//OC06092018
-		int PolCom = RadExtract.PolarizCompon;
+		//int PolCom = RadExtract.PolarizCompon; //OC03032021 (commented-out)
 		int Int_or_ReE = RadExtract.Int_or_Phase;
 		//if((PolCom == 6) || (Int_or_ReE != 8)) return CAN_NOT_EXTRACT_MUT_INT;
 		if(Int_or_ReE != 8) return CAN_NOT_EXTRACT_MUT_INT;
@@ -184,7 +214,9 @@ public:
 		//else if(RadExtract.PlotType == 1) return ExtractSingleElecMutualIntensityVsX(RadExtract);
 		if(RadExtract.PlotType == 1) return ExtractSingleElecMutualIntensityVsX(RadExtract);
 		else if(RadExtract.PlotType == 2) return ExtractSingleElecMutualIntensityVsZ(RadExtract);
-		else if(RadExtract.PlotType == 3) return ExtractSingleElecMutualIntensityVsXZ(RadExtract);
+		else if(RadExtract.PlotType == 3) return ExtractSingleElecMutualIntensityVsXZ(RadExtract, pvGPU); //HG24042023
+		//else if(RadExtract.PlotType == 3) return ExtractSingleElecMutualIntensityVsXZ(RadExtract);
+		//else if (RadExtract.PlotType == 3) return ExtractSingleElecMutualIntensityVsXZ(RadExtract, pGpuUsage); //HG24042023
 		//else if(RadExtract.PlotType == 4) return ExtractSingleElecMutualIntensityVsEX(RadExtract);
 		//else if(RadExtract.PlotType == 5) return ExtractSingleElecMutualIntensityVsEZ(RadExtract);
 		//else return ExtractSingleElecMutualIntensityEXZ(RadExtract);
@@ -216,16 +248,32 @@ public:
 	int ExtractSingleElecIntensity1DvsE(srTRadExtract&);
 	int ExtractSingleElecIntensity1DvsX(srTRadExtract&);
 	int ExtractSingleElecIntensity1DvsZ(srTRadExtract&);
-	int ExtractSingleElecIntensity2DvsXZ(srTRadExtract&);
+
+	int ExtractSingleElecIntensity2DvsXZ(srTRadExtract&, void* pvGPU=0); //HG30112023
+	//int ExtractSingleElecIntensity2DvsXZ(srTRadExtract&); // , gpuUsageArg* pGpuUsage=0);
+	//int ExtractSingleElecIntensity2DvsXZ(srTRadExtract&, gpuUsageArg* pGpuUsage=0); //Himanshu?
+
 	int ExtractSingleElecIntensity2DvsEX(srTRadExtract&);
 	int ExtractSingleElecIntensity2DvsEZ(srTRadExtract&);
 	int ExtractSingleElecIntensity3D(srTRadExtract&);
 
 	int ExtractSingleElecMutualIntensityVsX(srTRadExtract&); //OC06092018
 	int ExtractSingleElecMutualIntensityVsZ(srTRadExtract&);
-	int ExtractSingleElecMutualIntensityVsXZ(srTRadExtract&);
 
-	int ComputeMultiElecMutualIntensityVsXZ(srTRadExtract&, srTTrjDat* pTrjDat=0); //23022020
+	int ExtractSingleElecMutualIntensityVsXZ(srTRadExtract&, void* pvGPU=0); //HG30112023
+	//int ExtractSingleElecMutualIntensityVsXZ(srTRadExtract&);
+	//int ExtractSingleElecMutualIntensityVsXZ(srTRadExtract&, gpuUsageArg* pGpuUsage=0); //Himanshu?
+
+#ifdef _OFFLOAD_GPU //HG30112023
+	int ExtractSingleElecMutualIntensityVsXZ_GPU(float* pEx, float* pEz, float* pMI, long nx, long nz, long ne, long itStart, long itEnd, long PerX, long iter, int PolCom, bool EhOK, bool EvOK, TGPUUsageArg* pGPU);
+	int ExtractSingleElecIntensity2DvsXZ_GPU(srTRadExtract& RadExtract, double* arAuxInt, long long ie0, long long ie1, double InvStepRelArg, TGPUUsageArg* pGPU);
+#endif
+//#ifdef _OFFLOAD_GPU
+//	int ExtractSingleElecMutualIntensityVsXZ_GPU(float* pEx, float* pEz, float* pMI, long nxnz, long itStart, long itEnd, long PerX, long iter, int PolCom, bool EhOK, bool EvOK, gpuUsageArg *pGpuUsage);
+//	int ExtractSingleElecIntensity2DvsXZ_GPU(srTRadExtract& RadExtract, double* arAuxInt, long long ie0, long long ie1, double InvStepRelArg, gpuUsageArg *pGpuUsage);
+//#endif
+
+	//int ComputeMultiElecMutualIntensityVsXZ(srTRadExtract&, srTTrjDat* pTrjDat=0); //23022020
 
 	int SetupExtractedWaveData(srTRadExtract&, srTWaveAccessData&);
 	void SetupIntCoord(char, double, long long&, long long&, double&); //OC26042019
@@ -280,7 +328,8 @@ public:
 	{
 		for(int i=0; i<2; i++) PolVect[i] = 0.;
 		const float Norm = (float)(1./sqrt(2.));
-		complex<float> OneRe(1., 0.), OneIm(0., 1.), OneReN(Norm, 0.), OneImN(0., Norm);
+		complex<float> OneRe(1., 0.), OneReN(Norm, 0.), OneImN(0., Norm); //OC25012024 (OneIm never used?)
+		//complex<float> OneRe(1., 0.), OneIm(0., 1.), OneReN(Norm, 0.), OneImN(0., Norm);
 
 		if(PolCom==0) *PolVect = OneRe;
 		else if(PolCom==1) *(PolVect+1) = OneRe;
@@ -289,6 +338,10 @@ public:
 		else if(PolCom==4) { *PolVect = OneReN; *(PolVect+1) = OneImN;}
 		else if(PolCom==5) { *PolVect = OneReN; *(PolVect+1) = -OneImN;}
 	}
+
+#ifdef _OFFLOAD_GPU //HG30112023
+	GPU_PORTABLE
+#endif
 	float IntensityComponentSimpleInterpol(float* pEx_St, float* pEx_Fi, float* pEz_St, float* pEz_Fi, double InvStepRelArg, int PolCom, int Int_or_ReE)
 	{
 		float I_St = IntensityComponent(pEx_St, pEz_St, PolCom, Int_or_ReE);
@@ -308,6 +361,9 @@ public:
 		double Arg1Arg2 = Arg1*Arg2;
 		return (float)((I00 - I01 - I10 + I11)*Arg1Arg2 + (I10 - I00)*Arg1 + (I01 - I00)*Arg2 + I00);
 	}
+#ifdef _OFFLOAD_GPU //HG30112023
+	GPU_PORTABLE
+#endif
 	float IntensityComponent(float* pEx, float* pEz, int PolCom, int Int_or_ReE)
 	{
 		//float ExRe = *pEx, ExIm = *(pEx + 1), EzRe = *pEz, EzIm = *(pEz + 1);
@@ -372,6 +428,9 @@ public:
 		}
 		//return (float)(ExRe*ExRe + ExIm*ExIm + EzRe*EzRe + EzIm*EzIm);
 	}
+#ifdef _OFFLOAD_GPU //HG30112023
+	GPU_PORTABLE
+#endif
 	double FormalPhase(float Re, float Im)
 	{
 		const double HalhPi = 1.5707963267949;
@@ -437,9 +496,10 @@ public:
 		return 0;
 	}
 
-	int MutualIntensityComponent(float* pEx, float* pExT, float* pEz, float* pEzT, int PolCom, double iter, float* pResMI) //OC16122019
+	inline int MutualIntensityComponent(float* pEx, float* pExT, float* pEz, float* pEzT, int PolCom, double iter, float* pResMI) //OC16122019
 	//int MutualIntensityComponent(float* pEx, float* pExT, float* pEz, float* pEzT, int PolCom, long long iter, float* pResMI) //OC13122019
 	//int MutualIntensityComponent(float* pEx, float* pExT, float* pEz, float* pEzT, int PolCom, float* pResMI)
+	//int MutualIntensityComponent(float* pEx, float* pExT, float* pEz, float* pEzT, int PolCom, double iter, float* pResMI) //OC16122019
 	{//OC09092018
 	 //NOTE: This is based on M.I. definition as: E(x)E*(x'), which differs from existing definition in literature: E*(x)E(x')
 	 //The two definitions are related by complex conjugation: E*(x)E(x') = (E(x)E*(x'))*
@@ -533,6 +593,8 @@ public:
 		{
 			*pResMI = (float)ReMI;
 			*(pResMI+1) = (float)ImMI;
+			//pResMI[0] = (float)ReMI;
+			//pResMI[1] = (float)ImMI;
 		}
 		else if(iter > 0)
 		{
@@ -548,6 +610,116 @@ public:
 		}
 		return 0;
 	}
+
+	//int MutualIntensityComponentOpt(float* pEx, float* pExT, float* pEz, float* pEzT, int PolCom, double iter, float& reMI, float& imMI) //OC24022021
+	//{//OC09092018
+	// //NOTE: This is based on M.I. definition as: E(x)E*(x'), which differs from existing definition in literature: E*(x)E(x')
+	// //The two definitions are related by complex conjugation: E*(x)E(x') = (E(x)E*(x'))*
+	//	double ExRe = 0., ExIm = 0., EzRe = 0., EzIm = 0.;
+	//	double ExReT = 0., ExImT = 0., EzReT = 0., EzImT = 0.;
+	//	if(EhOK) { ExRe = *pEx; ExIm = *(pEx + 1); ExReT = *pExT; ExImT = *(pExT + 1); }
+	//	if(EvOK) { EzRe = *pEz; EzIm = *(pEz + 1); EzReT = *pEzT; EzImT = *(pEzT + 1); }
+	//	double ReMI = 0., ImMI = 0.;
+
+	//	switch(PolCom)
+	//	{
+	//	case 0: // Lin. Hor.
+	//	{
+	//		ReMI = ExRe*ExReT + ExIm*ExImT;
+	//		ImMI = ExIm*ExReT - ExRe*ExImT;
+	//		break;
+	//	}
+	//	case 1: // Lin. Vert.
+	//	{
+	//		ReMI = EzRe*EzReT + EzIm*EzImT;
+	//		ImMI = EzIm*EzReT - EzRe*EzImT;
+	//		break;
+	//	}
+	//	case 2: // Linear 45 deg.
+	//	{
+	//		double ExRe_p_EzRe = ExRe + EzRe, ExIm_p_EzIm = ExIm + EzIm;
+	//		double ExRe_p_EzReT = ExReT + EzReT, ExIm_p_EzImT = ExImT + EzImT;
+	//		ReMI = 0.5*(ExRe_p_EzRe*ExRe_p_EzReT + ExIm_p_EzIm*ExIm_p_EzImT);
+	//		ImMI = 0.5*(ExIm_p_EzIm*ExRe_p_EzReT - ExRe_p_EzRe*ExIm_p_EzImT);
+	//		break;
+	//	}
+	//	case 3: // Linear 135 deg.
+	//	{
+	//		double ExRe_mi_EzRe = ExRe - EzRe, ExIm_mi_EzIm = ExIm - EzIm;
+	//		double ExRe_mi_EzReT = ExReT - EzReT, ExIm_mi_EzImT = ExImT - EzImT;
+	//		ReMI = 0.5*(ExRe_mi_EzRe*ExRe_mi_EzReT + ExIm_mi_EzIm*ExIm_mi_EzImT);
+	//		ImMI = 0.5*(ExIm_mi_EzIm*ExRe_mi_EzReT - ExRe_mi_EzRe*ExIm_mi_EzImT);
+	//		break;
+	//	}
+	//	case 5: // Circ. Left //OC08092019: corrected to be in compliance with definitions for right-hand frame (x,z,s) and with corresponding definition and calculation of Stokes params
+	//	//case 4: // Circ. Right
+	//	{
+	//		double ExRe_mi_EzIm = ExRe - EzIm, ExIm_p_EzRe = ExIm + EzRe;
+	//		double ExRe_mi_EzImT = ExReT - EzImT, ExIm_p_EzReT = ExImT + EzReT;
+	//		ReMI = 0.5*(ExRe_mi_EzIm*ExRe_mi_EzImT + ExIm_p_EzRe*ExIm_p_EzReT);
+	//		ImMI = 0.5*(ExIm_p_EzRe*ExRe_mi_EzImT - ExRe_mi_EzIm*ExIm_p_EzReT);
+	//		break;
+	//	}
+	//	case 4: // Circ. Right //OC08092019: corrected to be in compliance with definitions for right-hand frame (x,z,s) and with corresponding definition and calculation of Stokes params
+	//	//case 5: // Circ. Left
+	//	{
+	//		double ExRe_p_EzIm = ExRe + EzIm, ExIm_mi_EzRe = ExIm - EzRe;
+	//		double ExRe_p_EzImT = ExReT + EzImT, ExIm_mi_EzReT = ExImT - EzReT;
+	//		ReMI = 0.5*(ExRe_p_EzIm*ExRe_p_EzImT + ExIm_mi_EzRe*ExIm_mi_EzReT);
+	//		ImMI = 0.5*(ExIm_mi_EzRe*ExRe_p_EzImT - ExRe_p_EzIm*ExIm_mi_EzReT);
+	//		break;
+	//	}
+	//	case -1: // s0
+	//	{
+	//		ReMI = ExRe*ExReT + ExIm*ExImT + EzRe*EzReT + EzIm*EzImT;
+	//		ImMI = ExIm*ExReT - ExRe*ExImT + EzIm*EzReT - EzRe*EzImT;
+	//		break;
+	//	}
+	//	case -2: // s1
+	//	{
+	//		ReMI = ExRe*ExReT + ExIm*ExImT - (EzRe*EzReT + EzIm*EzImT);
+	//		ImMI = ExIm*ExReT - ExRe*ExImT - (EzIm*EzReT - EzRe*EzImT);
+	//		break;
+	//	}
+	//	case -3: // s2
+	//	{
+	//		ReMI = ExImT*EzIm + ExIm*EzImT + ExReT*EzRe + ExRe*EzReT;
+	//		ImMI = ExReT*EzIm - ExRe*EzImT - ExImT*EzRe + ExIm*EzReT;
+	//		break;
+	//	}
+	//	case -4: // s3
+	//	{
+	//		ReMI = ExReT*EzIm + ExRe*EzImT - ExImT*EzRe - ExIm*EzReT;
+	//		ImMI = ExIm*EzImT - ExImT*EzIm - ExReT*EzRe + ExRe*EzReT;
+	//		break;
+	//	}
+	//	default: // total mutual intensity, same as s0
+	//	{
+	//		ReMI = ExRe*ExReT + ExIm*ExImT + EzRe*EzReT + EzIm*EzImT;
+	//		ImMI = ExIm*ExReT - ExRe*ExImT + EzIm*EzReT - EzRe*EzImT;
+	//		break;
+	//		//return CAN_NOT_EXTRACT_MUT_INT;
+	//	}
+	//	}
+	//	if(iter == 0)
+	//	{
+	//		reMI = (float)ReMI;
+	//		imMI = (float)ImMI;
+	//	}
+	//	else if(iter > 0)
+	//	{
+	//		double iter_p_1 = iter + 1; //OC20012020
+	//		//long long iter_p_1 = iter + 1;
+	//		reMI = (float)((reMI*iter + ReMI)/iter_p_1);
+	//		imMI = (float)((imMI*iter + ImMI)/iter_p_1);
+	//	}
+	//	else
+	//	{
+	//		reMI += (float)ReMI;
+	//		imMI += (float)ImMI;
+	//	}
+	//	return 0;
+	//}
 
 	static double IntCylCrd(double ph, void* par)
 	{//Function to be called by 1D integration routine
@@ -579,10 +751,42 @@ public:
 		return true;
 	}
 
+#ifdef _OFFLOAD_GPU //HG01122023
+	GPU_PORTABLE
+#endif
+	static void CosAndSin(double x, float& Cos, float& Sin) //OC23062021
+	{
+		const double TwoPI = 6.2831853071796;
+		const double ThreePIdTwo = 4.7123889803847;
+		const double One_dTwoPI = 0.1591549430919;
+		const double HalfPI = 1.5707963267949;
+		const double PI = 3.141592653590;
+		const double a2c = -0.5, a4c = 0.041666666666667, a6c = -0.0013888888888889, a8c = 0.000024801587301587, a10c = -2.755731922E-07;
+		const double a3s = -0.16666666666667, a5s = 0.0083333333333333, a7s = -0.0001984126984127, a9s = 2.755731922E-06, a11s = -2.505210839E-08;
+
+		x -= TwoPI*int(x*One_dTwoPI);
+		if(x < 0.) x += TwoPI;
+
+		char ChangeSign=0;
+		if(x > ThreePIdTwo) x -= TwoPI;
+		else if(x > HalfPI) { x -= PI; ChangeSign = 1; }
+
+		double xe2 = x*x;
+		Cos = float(1. + xe2*(a2c + xe2*(a4c + xe2*(a6c + xe2*(a8c + xe2*a10c)))));
+		Sin = float(x*(1. + xe2*(a3s + xe2*(a5s + xe2*(a7s + xe2*(a9s + xe2*a11s))))));
+		if(ChangeSign) { Cos = -Cos; Sin = -Sin; }
+	}
+
+
 	static void IntProc(srTWaveAccessData* pwI1, srTWaveAccessData* pwI2, double* arPar, int nPar); //OC09032019
 	//static void IntProc(srTWaveAccessData* pwI1, srTWaveAccessData* pwI2, double* arPar);
 	static void Int2DIntegOverAzim(srTWaveAccessData* pwI1, srTWaveAccessData* pwI2, double* arPar, int nPar); //OC09032019
 	//static void Int2DIntegOverAzim(srTWaveAccessData* pwI1, srTWaveAccessData* pwI2, double* arPar);
+	static void MutualIntFillHalfHermit(srTWaveAccessData* pwI); //OC06022021
+	static void MutualIntSumPart(srTWaveAccessData* pwI1, srTWaveAccessData* pwI2, long iterAvg=-1); //OC25042021
+	//static void MutualIntSumPart(srTWaveAccessData* pwI1, srTWaveAccessData* pwI2); //OC20042021
+	static void MutualIntTreatComQuadPhTerm(srTWaveAccessData* pwI, double* arPar, int nPar); //OC22062021
+	static void CohModesTreatComQuadPhTerm(srTWaveAccessData* pwI, double* arPar, int nPar); //OC26062021
 
 	static void ComponInteg(srTDataMD* pIntensOrigData, srTDataMD* pIntegParData, srTDataMD* pIntegResData);
 	static void ComponIntegVsPhotEn(srTDataMD* pIntensOrigData, double eMin, double eMax, srTDataMD* pIntegResData);
