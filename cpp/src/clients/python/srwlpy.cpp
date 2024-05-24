@@ -4192,7 +4192,7 @@ void DeallocOptCntArrays(SRWLOptC* pOptCnt)
 						{
 							DeallocOptCntArrays((SRWLOptC*)(pOptCnt->arOpt[i]));
 						}
-            else if (strncmp(sType, "mirror", 6) == 0) { fprintf(stderr, "skip sType='%s'\n", sType); }
+						else if (strncmp(sType, "mirror", 6) == 0) { fprintf(stderr, "skip sType='%s'\n", sType); } // ANHE01092023 bugfix
 						else { fprintf(stderr, "ERROR: bad sType '%s'\n", sType); }
 					}
 				}

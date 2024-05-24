@@ -439,10 +439,10 @@ int srTCompositeOptElem::PropagateRadiationGuided(srTSRWRadStructAccessData& wfr
 
 		if(propIntIsNeeded) ExtractPropagatedIntensity(wfr, nInt, arID, arIM, arI, elemCount); //OC29082018
 		//if(propIntIsNeeded) ExtractPropagatedIntensity(wfr, nInt, arID, arIM, arI, elemCount, nInt - 1);
-		{ // debug
+		{ // debug // ANHE
 			char binfname[256];
 			sprintf(binfname, "elem.%02d.2.wfr.bin", elemCount);
-			wfr.dumpBinData(binfname, binfname);
+			// wfr.dumpBinData(binfname, binfname); // ANHE
 		}
 	}
 	return 0;

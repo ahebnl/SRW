@@ -1,4 +1,4 @@
-#############################################################################
+﻿#############################################################################
 # SRWLib for Python Utility module for Synchrotron Sources (electron beams and ID parameters)
 # Author: O.C.
 # v 0.02

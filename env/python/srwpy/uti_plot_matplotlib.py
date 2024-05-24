@@ -1,4 +1,4 @@
-"""uti_plot backend for matplotlib
+﻿"""uti_plot backend for matplotlib
 
 .. moduleauthor:: N. Canestrari, O. Chubar, R. Nagler, M. Rakitin
 """

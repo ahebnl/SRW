@@ -3318,9 +3318,6 @@ int srTGenOptElem::RadResizeCore(srTSRWRadStructAccessData& OldRadAccessData, sr
 						*pEZ_New = *(BufF+2);
 						*(pEZ_New+1) = *(BufF+3);
 					}
-
-					*pEZ_New = *(BufF+2);
-					*(pEZ_New+1) = *(BufF+3);
 				}
 			}
 		}
